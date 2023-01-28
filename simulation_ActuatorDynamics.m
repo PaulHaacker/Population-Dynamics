@@ -75,95 +75,27 @@ N_EV = 2; % number of nonzero eigenvalues considered
 sign_ImaginaryPart = 1; % only works for +1
 EV = -sigma/A + 1i*omega/(2*pi*A)*sign_ImaginaryPart;
 
-%% ------ basis of trial functions
+%% get discretization
 
-phi = cell(6,1);
-phi{1} = @(a) exp(-(u_star+mu).*a);
-for kk = 1:N_EV
-    phi{2*kk} = @(a) sin(omega(kk).*a/(2*pi*A)).*exp(-sigma(kk).*a/A).*phi{1}(a);
-    phi{2*kk+1} = @(a) cos(omega(kk).*a/(2*pi*A)).*exp(-sigma(kk).*a/A).*phi{1}(a);
-end
-phi{2*N_EV+2} = @(a) x0(a); % initial condition fcn
+parameter.A = A; % max age - double
+parameter.mu = mu; % constant mortality rate - double
+parameter.k = k; % birth kernel - function handle
+parameter.p = p; % output kernel - double
+parameter.u_star = u_star; % steady-state dilution rate - double
 
-% apply differential operator to basis:
+% parameters for IC - paper [Schmidt17]
+parameter.x0 = x0; % function handle
 
-D_phi = cell(6,1);
-D_phi{1} = @(a) 0;
+% eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
 
-Lambda_mat = @(sigma,omega) [   -sign_ImaginaryPart*sigma/A,    sign_ImaginaryPart*omega/2/pi/A;
-                                -omega/2/pi/A,                  -sigma/A];
+parameter.sigma(1) = sigma(1);
+parameter.omega(1) = omega(1);
+parameter.sigma(2) = sigma(2);
+parameter.omega(2) = omega(2);
 
-for kk = 1:N_EV
-    Lambda_k = Lambda_mat(sigma(kk),omega(kk));
-    
-    D_phi{2*kk} = @(a) Lambda_k(1,1)*phi{2*kk}(a) + Lambda_k(1,2)*phi{2*kk+1}(a);
-    D_phi{2*kk+1} = @(a) Lambda_k(2,1)*phi{2*kk}(a) + Lambda_k(2,2)*phi{2*kk+1}(a);
-end
+[A_mat, C_mat, phi] = getDiscretization(parameter);
 
-
-% differential operator applied to IC
-syms a_sym
-x0_sym = x0(a_sym);
-D_x0_sym = diff(x0_sym) + (mu+u_star)*x0_sym;
-
-D_phi{2*N_EV+2} = matlabFunction(D_x0_sym);
-
-%% Plot Basis functions - works, but with dirty tweaks...
-% differences:
-% - needed to flip the sign of the eigenvalues real part sigma
-%
-% Q: Does the sign of an eigenfunction matter?
-% A: let f(a) satisfy the ODE 
-%           Df(a) = \lambda f(a)
-% where D is a differential operator. Let 
-%           g(a) := - f(a).
-% Whenever D is a linear operator, g also satisfies the above ODE and thus
-% even the function with the sign flipped is an eigenfunction..
-%  --> This is verified by switching the signs in the sine-argument, or
-%  equivalently, flipping the signs of the whole eigenfucntions.
-
-% a_sample = linspace(0,A,100);
-% 
-% figure
-% plot(a_sample,phi{1}(a_sample))
-% grid on
-% hold on
-% 
-% for kk = 1:N_EV
-%     plot(a_sample,phi{2*kk}(a_sample))
-%     plot(a_sample,phi{2*kk+1}(a_sample))
-% end
-% plot(a_sample,x0(a_sample))
-% 
-% legend('$\varphi_0$','$\varphi_{1,1}$','$\varphi_{1,2}$','$\varphi_{2,1}$',...
-%     '$\varphi_{2,2}$','$x_0$','Interpreter','latex','FontSize',12)
-
-%% ------ find matrices
-
-N = length(phi);
-Phi_1 = zeros(N);
-Phi_2 = zeros(N);
-
-for ii = 1:N
-    for jj = 1:N
-        Phi_1(ii,jj) = integral(@(a) phi{ii}(a).* phi{jj}(a),0,A);
-        Phi_2(ii,jj) = integral(@(a) phi{ii}(a).* D_phi{jj}(a),0,A);
-    end
-end
-
-% system matrix
-A_mat = eye(N)*u_star - Phi_1\Phi_2;
-
-% output matrix, where y(t) = C*lambda(t)
-C = zeros(size(phi))';
-for ii = 1: length(phi)
-   C(ii) = p*integral(@(a) phi{ii}(a),0,A);
-end
-
-% output value at equilibrium lambda = [1 0 ... 0]
-y_eq = C(1);
-
-%% simulate linear system - P-controller stabilizing setpoint
+%% simulate system - P-controller stabilizing setpoint
 % here, with controller w(t) = w_cancel(t) + w_stabilize(t)
 % notice that y(t) = C*lambda(t)
 % denote the simulation state by rho(t) = [lambda'(t),u(t)]
@@ -176,9 +108,9 @@ y_des = .5;
 % --- define controller - backstepping type
 c = 1; % control gain c > 0
 
-w_cancel = @(rho) -rho(end)-p/(C*rho(1:end-1))...
+w_cancel = @(rho) -rho(end)-p/(C_mat*rho(1:end-1))...
             *(rho(1:end-1)'*(eval_phi(phi,A)-eval_phi(phi,0)))-mu;
-w_stabilize = @(rho) -c*(rho(end)-u_star-log(C*rho(1:end-1)/y_des));
+w_stabilize = @(rho) -c*(rho(end)-u_star-log(C_mat*rho(1:end-1)/y_des));
 w_ctrl = @(rho) w_cancel(rho) + w_stabilize(rho);
 
 dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
@@ -194,7 +126,7 @@ tspan = [0 20];
 lambda_sample = rho_sample(:,1:end-1);
 u_sample = rho_sample(:,end);
 
-y_sample = C*lambda_sample';
+y_sample = C_mat*lambda_sample';
 
 w_ctrl_sample = zeros(size(t_sample));
 w_stabilize_sample = zeros(size(t_sample));
