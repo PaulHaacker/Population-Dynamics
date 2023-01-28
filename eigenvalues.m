@@ -56,7 +56,7 @@ u_star_num = fzero(res_LotkaSharpe_fcn,u_0);
 phi_0 = @(a) exp(-(u_star_num+mu)*a); % eigenfunction of steady-state operator 
  % with eigenvalue = 0
 
-%% ----- finding eigenvalues using newton-iteration - convergence to nonzero roots unsuccessful...
+%% ----- finding eigenvalues using newton-iteration with hand-calculated jacobian - convergence to nonzero roots unsuccessful...
 % ---> failed to find initial conditions with pos. def. jacobians
 
 % % integrands of the residuals of the implicit(to-be solved) eigenvalue
@@ -108,7 +108,7 @@ phi_0 = @(a) exp(-(u_star_num+mu)*a); % eigenfunction of steady-state operator
 % grid on
 % title('convergence of newton-iteration run02 - residuals')
 
-%% ----- finding eigenvalues using newton-iteration - using symbolic toolbox
+%% ----- finding eigenvalues using newton-iteration - find jacobian using symbolic toolbox
 
 % integrands of the residuals of the implicit(to-be solved) eigenvalue
 % equations.
@@ -198,7 +198,7 @@ res_ev = @(vec) [integral(@(a) res_1_eig_int(a,vec(1),vec(2)),0,A)-1;
                  integral(@(a) res_2_eig_int(a,vec(1),vec(2)),0,A)];    
 
 sigma_sample = -5:.2:5;
-omega_sample = 1:2:100;
+omega_sample = .1:2:100;
 
 % sigma varies with columns, omega with rows:
 [sigma_grid,omega_grid] = meshgrid(sigma_sample,omega_sample);
@@ -207,7 +207,7 @@ res_norm_grid = zeros(size(sigma_grid));
 
 for ii = 1: length(omega_sample)
     for jj = 1: length(sigma_sample)
-        res_norm_grid(ii,jj) = norm(res_ev([sigma_sample(jj), omega_sample(ii)]));
+        res_norm_grid(ii,jj) = norm(res_ev_fcn([sigma_sample(jj), omega_sample(ii)]));
     end
 end
 

@@ -7,39 +7,6 @@ clear
 % pairs and function for the IC]
 % --> requires two pairs of nonzero eigenvalues, computed by [Schmidt17]
 
-
-%% eigenvalues
-% of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-
-% % values suggested by paper in [Schmidt17] eq. (49)-(50)
-% sigma(1) = 1.010;
-% omega(1) = .351;
-% sigma(2) = 1.250;
-% omega(2) = .601;
-
-% % values suggested by paper in [Schmidt17] figure 2
-% sigma(1) = 4.1;
-% omega(1) = 37.69;
-% sigma(2) = 5;
-% omega(2) = 62.83;
-
-% % values I suspect by paper in [Schmidt17] eq. (49)-(50)
-% % -> they match the plots - note that eigenfuctions are still
-% eigenfunctions with flipped signs.
-% sigma(1) = 4.04;
-% omega(1) = 55.43;
-% sigma(2) = 5;
-% omega(2) = 94.92;
-
-% values I found, BUT with flipped signs of real parts
-% -> 
-sigma(1) = 4.0335;
-omega(1) = 55.4606;
-sigma(2) = 4.9866;
-omega(2) = 95.7048;
-
-N_EV = 2; % number of nonzero eigenvalues considered
-
 %% ------ parameters
 
 A = 2; % max age
@@ -66,12 +33,47 @@ x0 = @(a) c1*a + exp(c2*a);
 % x0_par = 6/A^2/nu_par^3/(1-exp(-nu_par*A))*(A*nu_par*exp(-A*nu_par)+2*exp(-A*nu_par)-2+A*nu_par+2*y0*nu_par);
 % x0 = @(a) (-b_par*a + x0_par * exp(-nu_par*a));
 
+%% eigenvalues
+% of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+
+% % values suggested by paper in [Schmidt17] eq. (49)-(50)
+% sigma(1) = 1.010;
+% omega(1) = .351;
+% sigma(2) = 1.250;
+% omega(2) = .601;
+
+% % values suggested by paper in [Schmidt17] figure 2
+% sigma(1) = 4.1;
+% omega(1) = 37.69;
+% sigma(2) = 5;
+% omega(2) = 62.83;
+
+% % values I suspect by paper in [Schmidt17] eq. (49)-(50)
+% % -> they match the plots - note that eigenfuctions are still
+% eigenfunctions with flipped signs.
+% sigma(1) = 4.04;
+% omega(1) = 55.43;
+% sigma(2) = 5;
+% omega(2) = 94.92;
+
+% values I found, BUT with flipped signs of real parts
+% -> 
+sigma(1) = -4.0335;
+omega(1) = 55.4606;
+sigma(2) = -4.9866;
+omega(2) = 95.7048;
+
+N_EV = 2; % number of nonzero eigenvalues considered
+
+sign_ImaginaryPart = 1; % only works for +1
+EV = -sigma/A + 1i*omega/(2*pi*A)*sign_ImaginaryPart;
+
 %% ------ basis of trial functions
 
 phi = cell(6,1);
 phi{1} = @(a) exp(-(u_star+mu).*a);
 for kk = 1:N_EV
-    phi{2*kk} = @(a) sin(omega(kk).*a/(2*pi*A)).*exp(-sigma(kk).*a/A).*phi{1}(a);
+    phi{2*kk} = @(a) sign_ImaginaryPart*sin(omega(kk).*a/(2*pi*A)).*exp(-sigma(kk).*a/A).*phi{1}(a);
     phi{2*kk+1} = @(a) cos(omega(kk).*a/(2*pi*A)).*exp(-sigma(kk).*a/A).*phi{1}(a);
 end
 phi{2*N_EV+2} = @(a) x0(a); % initial condition fcn
@@ -81,8 +83,8 @@ phi{2*N_EV+2} = @(a) x0(a); % initial condition fcn
 D_phi = cell(6,1);
 D_phi{1} = @(a) 0;
 
-Lambda_mat = @(sigma,omega) [   sigma/A,    omega/2/pi/A;
-                            -omega/2/pi/A,  sigma/A];
+Lambda_mat = @(sigma,omega) [   -sign_ImaginaryPart*sigma/A,    sign_ImaginaryPart*omega/2/pi/A;
+                                -omega/2/pi/A,                  -sigma/A];
 
 for kk = 1:N_EV
     Lambda_k = Lambda_mat(sigma(kk),omega(kk));
@@ -99,10 +101,8 @@ D_x0_sym = diff(x0_sym) + (mu+u_star)*x0_sym;
 
 D_phi{2*N_EV+2} = matlabFunction(D_x0_sym);
 
-%% Plot Basis functions - works, but with dirty tweaks...
-% differences:
-% - needed to flip the sign of the eigenvalues real part sigma
-%
+%% Plot Basis functions
+% 
 % Q: Does the sign of an eigenfunction matter?
 % A: let f(a) satisfy the ODE 
 %           Df(a) = \lambda f(a)
@@ -158,52 +158,56 @@ y_eq = C(1);
 % here, with steady state input u(t) == u_star
 % denote the simulation state by lambda
 
-% dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*u_star)*lambda;
-% 
-% lambda_0 = zeros(size(A_mat,1),1);
-% lambda_0(end) = 1;
-% tspan = [0 20];
-% 
-% [t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);
-% 
-% y_sample = C*lambda_sample';
+dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*u_star)*lambda;
+
+lambda_0 = zeros(size(A_mat,1),1);
+lambda_0(end) = 1;
+tspan = [0 20];
+
+[t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);
+
+y_sample = C*lambda_sample';
 
 %% plot results - Steady State Input
 
-% figure
-% plot(t_sample,lambda_sample)
-% title('discretized states \lambda(t) - steady state input u(t) == u^\ast')
-% xlabel('time t')
-% grid on
-% 
-% figure
-% plot(t_sample,y_sample)
-% title('output y(t) - steady state input u(t) == u^\ast')
-% xlabel('time t')
-% grid on
-% 
-% % plot the PDE state where x(t,a) = lambda(t)'*phi(a);
-% 
-% % time sample from above
-% % define domain sample
-% a_sample = 0:0.1:A;
-% 
-% [a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
-% x_mesh = zeros(size(a_mesh));
-% 
-% for ii = 1:length(t_sample)
-%     for jj = 1:length(a_sample)
-%         x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
-%     end
-% end
-% 
-% figure
-% surf_plot = surf(a_mesh,t_mesh,x_mesh);
-% LessEdgeSurf(surf_plot);
-% 
-% xlabel('age a')
-% ylabel('time t')
-% title('population density x(t,a) - steady state input u(t) == u^\ast')
+figure
+tiledlayout(2,2)
+nexttile
+plot(t_sample,lambda_sample)
+title('discretized states $\lambda(t)$ - steady state input $u(t) = u^\ast$')
+xlabel('time $t$')
+grid on
+
+nexttile
+plot(t_sample,y_sample)
+title('output $y(t)$ - steady state input $u(t) = u^\ast$')
+xlabel('time $t$')
+grid on
+
+% plot the PDE state where x(t,a) = lambda(t)'*phi(a);
+
+% time sample from above
+% define domain sample
+a_sample = 0:0.1:A;
+
+[a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
+x_mesh = zeros(size(a_mesh));
+
+for ii = 1:length(t_sample)
+    for jj = 1:length(a_sample)
+        x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+    end
+end
+
+axes_handle = nexttile;
+surf_plot = surf(a_mesh,t_mesh,x_mesh);
+LessEdgeSurf(surf_plot);
+
+xlabel('age $a$')
+ylabel('time $t$')
+title('population density $x(t,a)$ - steady state input $u(t) = u^\ast$')
+
+axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
 
 %% simulate linear system - P-controller stabilizing setpoint
 % here, with controller u(t) == u_star + ln(y(t)/y_des)
