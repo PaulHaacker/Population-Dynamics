@@ -1,12 +1,6 @@
 close all
 clear
 
-%% finding the matrices for the Galerkin-based simulation
-
-% choose the basis phi(a) = [zero eigenfunction; two first eigenfunction
-% pairs and function for the IC]
-% --> requires two pairs of nonzero eigenvalues, computed by [Schmidt17]
-
 %% ------ parameters
 
 A = 2; % max age
@@ -153,7 +147,8 @@ axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
 
 y_des = .5;
 
-u_ctrl = @(lambda) u_star + log(C_mat*lambda/y_des);
+% u_ctrl = @(lambda) u_star + log(C_mat*lambda/y_des);
+u_ctrl = @(lambda) u_star + (C_mat*lambda-y_des)/y_des;
 
 dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*u_ctrl(lambda))*lambda;
 

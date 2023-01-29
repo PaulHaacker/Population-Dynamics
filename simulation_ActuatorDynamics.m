@@ -7,13 +7,6 @@ clear
 % where w(t) is the new input. Simulate the new dynamics with the
 % backstepping-based controller.
 
-
-%% finding the matrices for the Galerkin-based simulation
-
-% choose the basis phi(a) = [zero eigenfunction; two first eigenfunction
-% pairs and function for the IC]
-% --> requires two pairs of nonzero eigenvalues, computed by [Schmidt17]
-
 %% ------ parameters
 
 A = 2; % max age

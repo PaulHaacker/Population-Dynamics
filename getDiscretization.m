@@ -1,4 +1,10 @@
 function [A_mat, C_mat, phi] = getDiscretization(parameter)
+%% finding the matrices for the Galerkin-based simulation
+
+% choose the basis phi(a) = [zero eigenfunction; two first eigenfunction
+% pairs and function for the IC]
+% --> requires two pairs of nonzero eigenvalues, computed by [Schmidt17]
+
 %% extract input parameters:
 
 A = parameter.A; % max age - double
