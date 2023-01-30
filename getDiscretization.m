@@ -9,6 +9,7 @@ function [A_mat, C_mat, phi] = getDiscretization(parameter)
 
 A = parameter.A; % max age - double
 mu = parameter.mu; % constant mortality rate - double
+mu_int = parameter.mu_int; % mortality rate integral - function
 k = parameter.k; % birth kernel - function handle
 p = parameter.p; % output kernel - double
 u_star = parameter.u_star; % steady-state dilution rate - double
@@ -31,7 +32,7 @@ EV = -sigma/A + 1i*omega/(2*pi*A)*sign_ImaginaryPart;
 %% ------ verify compatibility of parameters
 
 % verify steady-state input u_star:
-phi_0 = @(a) exp(-(u_star+mu)*a); % eigenfunction of steady-state operator with eigenvalue = 0
+phi_0 = @(a) exp(-u_star*a-mu_int(a)); % eigenfunction of steady-state operator with eigenvalue = 0
 res_LS_int = @(a,u_star) k(a).*phi_0(a); % integrand of the Lotka-Sharpe condition
 
 res_LotkaSharpe_fcn = @(u_star) integral(@(a) res_LS_int(a,u_star),0,A)-1; % Lotka-Sharpe in residual form as fcn of u_star
@@ -60,7 +61,7 @@ end
 %% ------ basis of trial functions
 
 phi = cell(6,1);
-phi{1} = @(a) exp(-(u_star+mu).*a);
+phi{1} = @(a) phi_0(a);
 for kk = 1:N_EV
     phi{2*kk} = @(a) sign_ImaginaryPart*sin(omega(kk).*a/(2*pi*A)).*exp(-sigma(kk).*a/A).*phi{1}(a);
     phi{2*kk+1} = @(a) cos(omega(kk).*a/(2*pi*A)).*exp(-sigma(kk).*a/A).*phi{1}(a);
@@ -86,7 +87,7 @@ end
 % differential operator applied to IC
 syms a_sym
 x0_sym = x0(a_sym);
-D_x0_sym = diff(x0_sym) + (mu+u_star)*x0_sym;
+D_x0_sym = diff(x0_sym) + (mu(a_sym)+u_star)*x0_sym;
 
 D_phi{2*N_EV+2} = matlabFunction(D_x0_sym);
 

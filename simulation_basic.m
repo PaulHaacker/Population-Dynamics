@@ -3,17 +3,36 @@ clear
 
 %% ------ parameters
 
-A = 2; % max age
-mu = .1; % constant mortality rate
-k = @(a) 2*a.*(A-a); % birth kernel
-p = 1; % output kernel
-u_star = 1; % steady-state dilution rate
-y0 = 1; % initial output
+% % [Schmidt17]
+% A = 2; % max age
+% mu = @(a) .1; % mortality rate fcn
+% k = @(a) 2*a.*(A-a); % birth kernel
+% p = 1; % output kernel
+% manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
+% u_star = 1; % steady-state dilution rate
+% y0 = 1; % initial output
+% c1 = -.066;
+% c2 = -.9;
+% x0 = @(a) c1*a + exp(c2*a); % IC
+% sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+% omega(1) = 55.4606;
+% sigma(2) = -4.9866;
+% omega(2) = 95.7048;
 
-% parameters for IC - paper [Schmidt17]
-c1 = -.066;
-c2 = -.9;
-x0 = @(a) c1*a + exp(c2*a);
+% [KurthSawodny21]
+A = 2; % max age
+mu = @(a) 1/(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
+k = @(a) a; % birth kernel
+p = 1; % output kernel
+manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
+mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
+u_star = 0.4837;
+y0 = 1; % initial output
+x0 = @(a) 8-3*a; % IC
+sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+omega(1) = 48.0574;
+sigma(2) = -2.3838;
+omega(2) = 87.8539;
 
 % % parameters for IC - Thesis [Schmidt16]
 % mu_par = 1.3;
@@ -27,45 +46,26 @@ x0 = @(a) c1*a + exp(c2*a);
 % x0_par = 6/A^2/nu_par^3/(1-exp(-nu_par*A))*(A*nu_par*exp(-A*nu_par)+2*exp(-A*nu_par)-2+A*nu_par+2*y0*nu_par);
 % x0 = @(a) (-b_par*a + x0_par * exp(-nu_par*a));
 
-%% eigenvalues
-% of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-
-% % values suggested by paper in [Schmidt17] eq. (49)-(50)
-% sigma(1) = 1.010;
-% omega(1) = .351;
-% sigma(2) = 1.250;
-% omega(2) = .601;
-
-% % values suggested by paper in [Schmidt17] figure 2
-% sigma(1) = 4.1;
-% omega(1) = 37.69;
-% sigma(2) = 5;
-% omega(2) = 62.83;
-
-% % values I suspect by paper in [Schmidt17] eq. (49)-(50)
-% % -> they match the plots - note that eigenfuctions are still
-% eigenfunctions with flipped signs.
-% sigma(1) = 4.04;
-% omega(1) = 55.43;
-% sigma(2) = 5;
-% omega(2) = 94.92;
-
-% values I found, BUT with flipped signs of real parts
-% -> 
-sigma(1) = -4.0335;
-omega(1) = 55.4606;
-sigma(2) = -4.9866;
-omega(2) = 95.7048;
-
-N_EV = 2; % number of nonzero eigenvalues considered
+N_EV = length(sigma); % number of nonzero eigenvalues considered
 
 sign_ImaginaryPart = 1; % only works for +1
 EV = -sigma/A + 1i*omega/(2*pi*A)*sign_ImaginaryPart;
 
+%% ------ find integral of mortality rate symbolically
+
+if ~manuallyProvideMuINT
+    syms a
+    mu_sym = mu(a);
+    mu_int_sym = int(mu_sym,0,a);
+
+    mu_int = matlabFunction(mu_int_sym);
+end
+
 %% get discretization
 
 parameter.A = A; % max age - double
-parameter.mu = mu; % constant mortality rate - double
+parameter.mu = mu; % mortality rate - function
+parameter.mu_int = mu_int; % mortality rate integral - function
 parameter.k = k; % birth kernel - function handle
 parameter.p = p; % output kernel - double
 parameter.u_star = u_star; % steady-state dilution rate - double
@@ -145,7 +145,7 @@ axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 
-y_des = .5;
+y_des = 15;
 
 % u_ctrl = @(lambda) u_star + log(C_mat*lambda/y_des);
 u_ctrl = @(lambda) u_star + (C_mat*lambda-y_des)/y_des;

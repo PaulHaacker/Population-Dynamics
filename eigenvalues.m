@@ -3,57 +3,62 @@ clear
 
 %% ------ parameters
 
-A = 2; % max age
-mu = .1; % constant mortality rate
-k = @(a) 2*a.*(A-a); % birth kernel
-p = 1; % output kernel
+% % [SchmidtSawodny17]
+% A = 2; % max age
+% mu = @(a) .1; % mortality rate function
+% k = @(a) 2*a.*(A-a); % birth kernel
+% p = 1; % output kernel
+% manuallyProvideMuINT = false; % boolean, that switches integral of mu on
+% % or off.
 
-% %% ------ find equilibrium dilution rate numerically w/ analytic solution
-% % of integral
-% 
-% res_bc = @(c) 2./c.^3.*((A*c+2).*exp(-A*c)+A*c-2)-1; % analytic expression for 
-%  % residual of boundary condition with the above parameters where c =
-%  % mu+u_star
-% 
-% c_0 = 1.5; % initial guess
-% c_star = fzero(res_bc,c_0);
-% u_star = c_star - mu; % equilibrium dilution rate
+% [KurthSawodny21]
+A = 2; % max age
+mu = @(a) 1/(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
+k = @(a) a; % birth kernel
+p = 1; % output kernel
+manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
+mu_int_fcn = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
+
+%% ------ find integral of mortality rate symbolically
+
+if ~manuallyProvideMuINT
+    syms a
+    mu_sym = mu(a);
+    mu_int_sym = int(mu_sym,0,a);
+
+    mu_int_fcn = matlabFunction(mu_int_sym);
+end
  
 %% ------ find equilibrium dilution rate numerically w/o analytic solution
 % of integral - provides a higher level of automation
 
 % integrand of the Lotka-Sharpe condition
-res_LS_int = @(a,u_star) k(a).*exp(-(u_star+mu).*a);
+res_LS_int = @(a,u_star) k(a).*exp(-u_star*a-mu_int_fcn(a));
 
 % Lotka-Sharpe in residual form as fcn of u_star
 res_LotkaSharpe_fcn = @(u_star) integral(@(a) res_LS_int(a,u_star),0,A)-1;
-
-% verify the numerical integration by plugging in the known value of u_star
-u_star_test = .9998;
-res_LS_test = res_LotkaSharpe_fcn(u_star_test);
 
 u_0 = .5; % initial guess
 u_star_num = fzero(res_LotkaSharpe_fcn,u_0);
 
 %% plot Lotka-Sharpe residual fcn wrt. u_star
 
-% u_star_sample = 0:.1:10;
-% res_LotkaSharpe_sample = zeros(size(u_star_sample));
-% for ii = 1: length(u_star_sample)
-%     res_LotkaSharpe_sample(ii) = res_LotkaSharpe_fcn(u_star_sample(ii));
-% end
-% 
-% 
-% figure
-% plot(u_star_sample,res_LotkaSharpe_sample)
-% title('Lotka-Sharpe condition')
-% xlabel('$u^\star$','Interpreter','Latex')
-% xlabel('residual')
-% grid on
+u_star_sample = 0:.1:10;
+res_LotkaSharpe_sample = zeros(size(u_star_sample));
+for ii = 1: length(u_star_sample)
+    res_LotkaSharpe_sample(ii) = res_LotkaSharpe_fcn(u_star_sample(ii));
+end
+
+figure
+plot(u_star_sample,res_LotkaSharpe_sample)
+title('Lotka-Sharpe condition')
+xlabel('$u^\star$','Interpreter','Latex')
+ylabel('residual')
+grid on
 
 %% ----- define eigenfunction of zero eigenvalue
 
-phi_0 = @(a) exp(-(u_star_num+mu)*a); % eigenfunction of steady-state operator 
+phi_0 = @(a) exp(-u_star_num*a-mu_int_fcn(a)); % eigenfunction of steady-state operator 
  % with eigenvalue = 0
 
 %% ----- finding eigenvalues using newton-iteration with hand-calculated jacobian - convergence to nonzero roots unsuccessful...
@@ -136,7 +141,7 @@ resJac_ev_fcn = @(vec) help(vec(1),vec(2));
 %%  run the newton algorithm
 
 steps = 1000; % max number of steps
-x_01 = [-3.6;56]; % initial guess for k = 1 from surf plot below
+x_01 = [-1.6;48]; % initial guess for k = 1 from surf plot below
 tol = .001; % absolute errror tolerance
 [y_1,yfinal_1,act_steps_1,res_history_1] = ...
     NewtonIteration(res_ev_fcn, resJac_ev_fcn,...
@@ -239,14 +244,14 @@ res_ev = @(vec) [integral(@(a) res_1_eig_int(a,vec(1),vec(2)),0,A)-1;
                  integral(@(a) res_2_eig_int(a,vec(1),vec(2)),0,A)];    
 
 % --- k = 1:
-x_01 = [-3.6;56]; % initial guess for k = 1 from surf plot
+x_01 = [-1.6;48]; % initial guess for k = 1 from surf plot
 
 options = optimoptions('fsolve','Display','iter-detailed','Diagnostics','on','FunctionTolerance',.01);
 
 [EV_01,~,~,output01] = fsolve(res_ev,x_01,options);
 
 % --- k = 2:
-x_02 = [-4.2;98]; % initial guess for k = 2 from surf plot
+x_02 = [-2.2;90]; % initial guess for k = 2 from surf plot
 
 options = optimoptions('fsolve','Display','iter-detailed','Diagnostics','on','FunctionTolerance',.01);
 
