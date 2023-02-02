@@ -2,9 +2,9 @@ close all
 clear
 %% Population Dynamics with Actuator Dynamics
 % this script extends the Population Dynamics system with integrator
-% dynamics for the dilution rate u(t)
-%       \dot u(t) = w(t),
-% where w(t) is the new input. Simulate the new dynamics with the
+% dynamics for the dilution rate D(t)
+%       \dot D(t) = u(t),
+% where u(t) is the new input. Simulate the new dynamics with the
 % backstepping-based controller.
 
 %% ------ parameters
@@ -15,7 +15,7 @@ mu = @(a) .1; % mortality rate fcn
 k = @(a) 2*a.*(A-a); % birth kernel
 p = 1; % output kernel
 manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
-u_star = 1; % steady-state dilution rate
+D_star = 1; % steady-state dilution rate
 y0 = 1; % initial output
 c1 = -.066;
 c2 = -.9;
@@ -32,7 +32,7 @@ omega(2) = 95.7048;
 % p = 1; % output kernel
 % manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
 % mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
-% u_star = 0.4837;
+% D_star = 0.4837;
 % y0 = 1; % initial output
 % x0 = @(a) 8-3*a; % IC
 % sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
@@ -73,7 +73,7 @@ parameter.mu = mu; % mortality rate - function
 parameter.mu_int = mu_int; % mortality rate integral - function
 parameter.k = k; % birth kernel - function handle
 parameter.p = p; % output kernel - double
-parameter.u_star = u_star; % steady-state dilution rate - double
+parameter.D_star = D_star; % steady-state dilution rate - double
 
 % parameters for IC - paper [Schmidt17]
 parameter.x0 = x0; % function handle
@@ -88,9 +88,9 @@ parameter.omega(2) = omega(2);
 [A_mat, C_mat, phi] = getDiscretization(parameter);
 
 %% simulate system - P-controller stabilizing setpoint
-% here, with controller w(t) = w_cancel(t) + w_stabilize(t)
+% here, with controller u(t) = u_cancel(t) + u_stabilize(t)
 % notice that y(t) = C*lambda(t)
-% denote the simulation state by rho(t) = [lambda'(t),u(t)]
+% denote the simulation state by rho(t) = [lambda'(t),D(t)]
 
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
@@ -100,33 +100,33 @@ y_des = .5;
 % --- define controller - backstepping type
 c = 1; % control gain c > 0
 
-w_cancel = @(rho) -rho(end)-p/(C_mat*rho(1:end-1))...
+u_cancel = @(rho) -rho(end)-p/(C_mat*rho(1:end-1))...
             *(rho(1:end-1)'*(eval_phi(phi,A)-eval_phi(phi,0)))-mu(0);
-w_stabilize = @(rho) -c*(rho(end)-u_star-log(C_mat*rho(1:end-1)/y_des));
-w_ctrl = @(rho) w_cancel(rho) + w_stabilize(rho);
+u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des));
+u_ctrl = @(rho) u_cancel(rho) + u_stabilize(rho);
 
 dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
-                      w_ctrl(rho)];
+                      u_ctrl(rho)];
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
-rho_0 = [lambda_0;u_star];
+rho_0 = [lambda_0;D_star];
 tspan = [0 20];
 
 [t_sample,rho_sample] = ode45(dynamics,tspan,rho_0);
 
 lambda_sample = rho_sample(:,1:end-1);
-u_sample = rho_sample(:,end);
+D_sample = rho_sample(:,end);
 
 y_sample = C_mat*lambda_sample';
 
-w_ctrl_sample = zeros(size(t_sample));
-w_stabilize_sample = zeros(size(t_sample));
-w_cancel_sample = zeros(size(t_sample));
+u_ctrl_sample = zeros(size(t_sample));
+u_stabilize_sample = zeros(size(t_sample));
+u_cancel_sample = zeros(size(t_sample));
 for kk = 1:size(lambda_sample,1)
-    w_ctrl_sample(kk) = w_ctrl(rho_sample(kk,:)');
-    w_stabilize_sample(kk) = w_stabilize(rho_sample(kk,:)');
-    w_cancel_sample(kk) = w_cancel(rho_sample(kk,:)');
+    u_ctrl_sample(kk) = u_ctrl(rho_sample(kk,:)');
+    u_stabilize_sample(kk) = u_stabilize(rho_sample(kk,:)');
+    u_cancel_sample(kk) = u_cancel(rho_sample(kk,:)');
 end
 
 %% plot results - P-controller stabilizing setpoint
@@ -147,24 +147,23 @@ title('output $y(t)$ - backstepping controller')
 legend('desired output $y_\mathrm{des}$','output $y(t)$')
 xlabel('time $t$')
 grid on
-str = {'steady-state error $\Delta y = y_\mathrm{ss} - y_\mathrm{des}$ = '...
-    ,num2str(y_sample(end)-y_des)};
-text(max(xlim), min(ylim),str, 'Horiz','right', 'Vert','top')
+% str = {'steady-state error $\Delta y = y_\mathrm{ss} - y_\mathrm{des}$ = '...
+%     ,num2str(y_sample(end)-y_des)};
+% text(max(xlim), min(ylim),str, 'Horiz','right', 'Vert','top')
 
 % REMARK: notation in 
 % - documentation is Dilution rate D(t), voltage input u(t)
-% - simulations is Dilution rate u(t), voltage input w(t)
 
 nexttile
 hold on
-plot(t_sample,ones(size(u_sample))*u_star,'--k','Linewidth',1.5)
-plot(t_sample,u_sample)
-plot(t_sample,w_ctrl_sample)
-plot(t_sample,w_cancel_sample)
-plot(t_sample,w_stabilize_sample)
-title('dilution rate $u(t)$ and input $w(t)$ - backstepping controller')
-legend('steady state dilution $u^\ast$','dilution rate $u(t)$','input $w(t) = w_\mathrm c(t) +w_\mathrm s(t)$',...
-    'cancelling terms $w_\mathrm c(t)$','stabilizing terms $w_\mathrm s(t)$')
+plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+plot(t_sample,D_sample)
+plot(t_sample,u_ctrl_sample)
+plot(t_sample,u_cancel_sample)
+plot(t_sample,u_stabilize_sample)
+title('dilution rate $D(t)$ and input $u(t)$ - backstepping controller')
+legend('steady state dilution $D^\ast$','dilution rate $D(t)$','input $u(t) = u_\mathrm c(t) +u_\mathrm s(t)$',...
+    'cancelling terms $u_\mathrm c(t)$','stabilizing terms $u_\mathrm s(t)$')
 xlabel('time $t$')
 grid on
 
