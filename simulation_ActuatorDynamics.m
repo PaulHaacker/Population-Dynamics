@@ -130,6 +130,7 @@ for kk = 1:size(lambda_sample,1)
 end
 
 %% plot results - P-controller stabilizing setpoint
+
 figure
 tiledlayout(2,2)
 nexttile
@@ -149,6 +150,10 @@ grid on
 str = {'steady-state error $\Delta y = y_\mathrm{ss} - y_\mathrm{des}$ = '...
     ,num2str(y_sample(end)-y_des)};
 text(max(xlim), min(ylim),str, 'Horiz','right', 'Vert','top')
+
+% REMARK: notation in 
+% - documentation is Dilution rate D(t), voltage input u(t)
+% - simulations is Dilution rate u(t), voltage input w(t)
 
 nexttile
 hold on
