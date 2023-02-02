@@ -137,7 +137,7 @@ xlabel('age $a$')
 ylabel('time $t$')
 title('population density $x(t,a)$ - steady state input $D(t) = D^\ast$')
 
-axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
+axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
 
 %% simulate linear system - P-controller stabilizing setpoint
 % here, with controller u(t) == D_star + ln(y(t)/y_des)
@@ -212,7 +212,7 @@ end
 axes_handle = nexttile;
 surf_plot = surf(a_mesh,t_mesh,x_mesh);
 LessEdgeSurf(surf_plot);
-axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
+axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
 
 xlabel('age $a$')
 ylabel('time $t$')
