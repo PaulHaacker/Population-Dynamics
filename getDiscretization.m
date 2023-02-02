@@ -12,7 +12,7 @@ mu = parameter.mu; % constant mortality rate - double
 mu_int = parameter.mu_int; % mortality rate integral - function
 k = parameter.k; % birth kernel - function handle
 p = parameter.p; % output kernel - double
-u_star = parameter.u_star; % steady-state dilution rate - double
+D_star = parameter.D_star; % steady-state dilution rate - double
 
 % parameters for IC - paper [Schmidt17]
 x0 = parameter.x0; % function handle
@@ -31,16 +31,16 @@ EV = -sigma/A + 1i*omega/(2*pi*A)*sign_ImaginaryPart;
 
 %% ------ verify compatibility of parameters
 
-% verify steady-state input u_star:
-phi_0 = @(a) exp(-u_star*a-mu_int(a)); % eigenfunction of steady-state operator with eigenvalue = 0
-res_LS_int = @(a,u_star) k(a).*phi_0(a); % integrand of the Lotka-Sharpe condition
+% verify steady-state input D_star:
+phi_0 = @(a) exp(-D_star*a-mu_int(a)); % eigenfunction of steady-state operator with eigenvalue = 0
+res_LS_int = @(a,D_star) k(a).*phi_0(a); % integrand of the Lotka-Sharpe condition
 
-res_LotkaSharpe_fcn = @(u_star) integral(@(a) res_LS_int(a,u_star),0,A)-1; % Lotka-Sharpe in residual form as fcn of u_star
+res_LotkaSharpe_fcn = @(D_star) integral(@(a) res_LS_int(a,D_star),0,A)-1; % Lotka-Sharpe in residual form as fcn of D_star
 
-res_LS_test = res_LotkaSharpe_fcn(u_star);
+res_LS_test = res_LotkaSharpe_fcn(D_star);
 
 if abs(res_LS_test)>.1
-    error('steady-state input u_star is incompatible with Lotka-Sharpe!')
+    error('steady-state input D_star is incompatible with Lotka-Sharpe!')
 end
 
 % verify eigenvalues:
@@ -87,7 +87,7 @@ end
 % differential operator applied to IC
 syms a_sym
 x0_sym = x0(a_sym);
-D_x0_sym = diff(x0_sym) + (mu(a_sym)+u_star)*x0_sym;
+D_x0_sym = diff(x0_sym) + (mu(a_sym)+D_star)*x0_sym;
 
 D_phi{2*N_EV+2} = matlabFunction(D_x0_sym);
 
@@ -133,7 +133,7 @@ for ii = 1:N
 end
 
 % system matrix
-A_mat = eye(N)*u_star - Phi_1\Phi_2;
+A_mat = eye(N)*D_star - Phi_1\Phi_2;
 
 % output matrix, where y(t) = C*lambda(t)
 C_mat = zeros(size(phi))';

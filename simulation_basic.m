@@ -9,7 +9,7 @@ clear
 % k = @(a) 2*a.*(A-a); % birth kernel
 % p = 1; % output kernel
 % manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
-% u_star = 1; % steady-state dilution rate
+% D_star = 1; % steady-state dilution rate
 % y0 = 1; % initial output
 % c1 = -.066;
 % c2 = -.9;
@@ -26,7 +26,7 @@ k = @(a) a; % birth kernel
 p = 1; % output kernel
 manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
 mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
-u_star = 0.4837;
+D_star = 0.4837;
 y0 = 1; % initial output
 x0 = @(a) 8-3*a; % IC
 sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
@@ -68,7 +68,7 @@ parameter.mu = mu; % mortality rate - function
 parameter.mu_int = mu_int; % mortality rate integral - function
 parameter.k = k; % birth kernel - function handle
 parameter.p = p; % output kernel - double
-parameter.u_star = u_star; % steady-state dilution rate - double
+parameter.D_star = D_star; % steady-state dilution rate - double
 
 % parameters for IC - paper [Schmidt17]
 parameter.x0 = x0; % function handle
@@ -83,12 +83,12 @@ parameter.omega(2) = omega(2);
 [A_mat, C_mat, phi] = getDiscretization(parameter);
 
 %% simulate linear system - Steady State Input
-% here, with steady state input u(t) == u_star
+% here, with steady state input u(t) == D_star
 % denote the simulation state by lambda
 
-u_crtl = @(t,lambda) u_star;
+D_ctrl = @(t,lambda) D_star;
 
-dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*u_crtl(t,lambda))*lambda;
+dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
@@ -104,13 +104,13 @@ figure
 tiledlayout(2,2)
 nexttile
 plot(t_sample,lambda_sample)
-title('discretized states $\lambda(t)$ - steady state input $u(t) = u^\ast$')
+title('discretized states $\lambda(t)$ - steady state input $D(t) = D^\ast$')
 xlabel('time $t$')
 grid on
 
 nexttile
 plot(t_sample,y_sample)
-title('output $y(t)$ - steady state input $u(t) = u^\ast$')
+title('output $y(t)$ - steady state input $D(t) = D^\ast$')
 xlabel('time $t$')
 grid on
 
@@ -135,12 +135,12 @@ LessEdgeSurf(surf_plot);
 
 xlabel('age $a$')
 ylabel('time $t$')
-title('population density $x(t,a)$ - steady state input $u(t) = u^\ast$')
+title('population density $x(t,a)$ - steady state input $D(t) = D^\ast$')
 
 axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
 
 %% simulate linear system - P-controller stabilizing setpoint
-% here, with controller u(t) == u_star + ln(y(t)/y_des)
+% here, with controller u(t) == D_star + ln(y(t)/y_des)
 % notice that y(t) = C*lambda(t)
 % denote the simulation state by lambda
 
@@ -149,10 +149,10 @@ axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
 
 y_des = 15;
 
-% u_ctrl = @(lambda) u_star + log(C_mat*lambda/y_des);
-u_ctrl = @(lambda) u_star + (C_mat*lambda-y_des)/y_des;
+% D_ctrl = @(lambda) D_star + log(C_mat*lambda/y_des);
+D_ctrl = @(lambda) D_star + (C_mat*lambda-y_des)/y_des;
 
-dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*u_ctrl(lambda))*lambda;
+dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
@@ -162,9 +162,9 @@ tspan = [0 20];
 
 y_sample = C_mat*lambda_sample';
 
-u_sample = zeros(size(t_sample));
+D_sample = zeros(size(t_sample));
 for kk = 1:size(lambda_sample,1)
-    u_sample(kk) = u_ctrl(lambda_sample(kk,:)');
+    D_sample(kk) = D_ctrl(lambda_sample(kk,:)');
 end
 
 %% plot results - P-controller stabilizing setpoint
@@ -187,10 +187,10 @@ grid on
 
 nexttile
 hold on
-plot(t_sample,ones(size(u_sample))*u_star,'--k','Linewidth',1.5)
-plot(t_sample,u_sample)
-title('control input $u(t)$ - logarithmic P-controller stabilizing setpoint')
-legend('steady state input $u^\ast$','input $u(t)$')
+plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+plot(t_sample,D_sample)
+title('control input $D(t)$ - logarithmic P-controller stabilizing setpoint')
+legend('steady state input $D^\ast$','input $D(t)$')
 xlabel('time $t$')
 grid on
 

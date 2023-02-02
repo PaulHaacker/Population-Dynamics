@@ -33,24 +33,24 @@ end
 % of integral - provides a higher level of automation
 
 % integrand of the Lotka-Sharpe condition
-res_LS_int = @(a,u_star) k(a).*exp(-u_star*a-mu_int_fcn(a));
+res_LS_int = @(a,D_star) k(a).*exp(-D_star*a-mu_int_fcn(a));
 
-% Lotka-Sharpe in residual form as fcn of u_star
-res_LotkaSharpe_fcn = @(u_star) integral(@(a) res_LS_int(a,u_star),0,A)-1;
+% Lotka-Sharpe in residual form as fcn of D_star
+res_LotkaSharpe_fcn = @(D_star) integral(@(a) res_LS_int(a,D_star),0,A)-1;
 
 u_0 = .5; % initial guess
-u_star_num = fzero(res_LotkaSharpe_fcn,u_0);
+D_star_num = fzero(res_LotkaSharpe_fcn,u_0);
 
-%% plot Lotka-Sharpe residual fcn wrt. u_star
+%% plot Lotka-Sharpe residual fcn wrt. D_star
 
-u_star_sample = 0:.1:10;
-res_LotkaSharpe_sample = zeros(size(u_star_sample));
-for ii = 1: length(u_star_sample)
-    res_LotkaSharpe_sample(ii) = res_LotkaSharpe_fcn(u_star_sample(ii));
+D_star_sample = 0:.1:10;
+res_LotkaSharpe_sample = zeros(size(D_star_sample));
+for ii = 1: length(D_star_sample)
+    res_LotkaSharpe_sample(ii) = res_LotkaSharpe_fcn(D_star_sample(ii));
 end
 
 figure
-plot(u_star_sample,res_LotkaSharpe_sample)
+plot(D_star_sample,res_LotkaSharpe_sample)
 title('Lotka-Sharpe condition')
 xlabel('$u^\star$','Interpreter','Latex')
 ylabel('residual')
@@ -58,7 +58,7 @@ grid on
 
 %% ----- define eigenfunction of zero eigenvalue
 
-phi_0 = @(a) exp(-u_star_num*a-mu_int_fcn(a)); % eigenfunction of steady-state operator 
+phi_0 = @(a) exp(-D_star_num*a-mu_int_fcn(a)); % eigenfunction of steady-state operator 
  % with eigenvalue = 0
 
 %% ----- finding eigenvalues using newton-iteration with hand-calculated jacobian - convergence to nonzero roots unsuccessful...
