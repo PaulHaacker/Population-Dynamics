@@ -108,12 +108,12 @@ u_ctrl = @(rho) u_cancel(rho) + u_stabilize(rho);
 dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
                       u_ctrl(rho)];
 
-lambda_0 = zeros(size(A_mat,1),1);
+lambda_0 = zeros(size(A_mat,1),1); % initial conditions
 lambda_0(end) = 1;
 rho_0 = [lambda_0;D_star];
-tspan = [0 20];
+tspan = [0 10]; % simulation horizon
 
-[t_sample,rho_sample] = ode45(dynamics,tspan,rho_0);
+[t_sample,rho_sample] = ode45(dynamics,tspan,rho_0); % run simulation
 
 lambda_sample = rho_sample(:,1:end-1);
 D_sample = rho_sample(:,end);
@@ -129,10 +129,12 @@ for kk = 1:size(lambda_sample,1)
     u_cancel_sample(kk) = u_cancel(rho_sample(kk,:)');
 end
 
-%% plot results - P-controller stabilizing setpoint
+%% plot results - P-controller stabilizing setpoint DEBUG PLOT
 
 figure
-tiledlayout(2,2)
+tiles_handle = tiledlayout(2,2);
+title(tiles_handle,'Debug Plot','Interpreter','Latex')
+
 nexttile
 plot(t_sample,lambda_sample)
 title('discretized states $\lambda(t)$ - backstepping controller')
@@ -191,6 +193,57 @@ xlabel('age $a$')
 ylabel('time $t$')
 title('population density $x(t,a)$ - backstepping controller')
 
+%% plot results - P-controller stabilizing setpoint KRSTIC plot
+figure
+tiles_handle = tiledlayout(2,2);
+title(tiles_handle,'Print Plot','Interpreter','Latex')
+
+nexttile
+plot(t_sample,u_ctrl_sample)
+title('input $u(t)$ - backstepping controller')
+xlabel('time t')
+grid on
+
+output_ax_handle = nexttile;
+hold on
+plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
+plot(t_sample,y_sample)
+title('output $y(t)$ - backstepping controller')
+legend('desired output $y_\mathrm{des}$','output $y(t)$')
+xlabel('time $t$')
+grid on
+
+nexttile
+hold on
+plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+plot(t_sample,D_sample)
+title('dilution rate $D(t)$ - backstepping controller')
+legend('steady state dilution $D^\ast$','dilution rate $D(t)$')
+xlabel('time $t$')
+grid on
+
+% plot the PDE state where x(t,a) = lambda(t)'*phi(a);
+
+% time sample from above
+% define domain sample
+a_sample = 0:0.1:A;
+
+[a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
+x_mesh = zeros(size(a_mesh));
+
+for ii = 1:length(t_sample)
+    for jj = 1:length(a_sample)
+        x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+    end
+end
+
+axes_handle = nexttile;
+surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]);
+LessEdgeSurf(surf_plot);
+axes_handle.CameraPosition = [14.8362   50.7407    3.5923];
+xlabel('age $a$')
+ylabel('time $t$')
+title('population density $f(t,a)$ - backstepping controller')
 
 %% functions
 
