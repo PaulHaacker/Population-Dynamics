@@ -95,19 +95,18 @@ parameter.omega(2) = omega(2);
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 20;
+y_des = 2;
 
 % --- define controller - backstepping type
-c = 2; % control gain c > 0
+c = 1; % control gain c > 0
 
 u_cancel = @(rho) -rho(end)-p/(C_mat*rho(1:end-1))...
             *(rho(1:end-1)'*(eval_phi(phi,A)-eval_phi(phi,0)))-mu(0); % cancelling terms
-u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabilizing terms
-
-u_constraint = @(rho) 0; % ignore constraints on D(t)
+u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabili
+u_constraint = @(rho)
+u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
+% u_constraint =  @(rho) (rho(end) - D_star); % linear penalty of D(t)->0
 % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
-% u_constraint =  @(rho) c*2*(rho(end) - D_star); % linear penalty of D(t)->0
-% u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) - rho(end)); % Safety-Filter for D(t) > 0
 u_ctrl = @(rho) u_cancel(rho) + u_stabilize(rho) + u_constraint(rho);
 
 dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
@@ -136,14 +135,13 @@ end
 
 %% plot results - P-controller stabilizing setpoint DEBUG PLOT
 
-figure('units','normalized','outerposition',[0 0 1 1])
+figure
 tiles_handle = tiledlayout(2,2);
 title(tiles_handle,'Debug Plot','Interpreter','Latex')
 
 nexttile
 plot(t_sample,lambda_sample)
 title('discretized states $\lambda(t)$ - backstepping controller')
-legend('1','2','3','4','5','6')
 xlabel('time t')
 grid on
 
@@ -200,7 +198,7 @@ ylabel('time $t$')
 title('population density $x(t,a)$ - backstepping controller')
 
 %% plot results - P-controller stabilizing setpoint KRSTIC plot
-figure('units','normalized','outerposition',[0 0 1 1])
+figure
 tiles_handle = tiledlayout(2,2);
 title(tiles_handle,'Print Plot','Interpreter','Latex')
 
