@@ -131,7 +131,7 @@ end
 
 axes_handle = nexttile;
 surf_plot = surf(a_mesh,t_mesh,x_mesh);
-LessEdgeSurf(surf_plot);
+LessEdgeSurf(surf_plot,10,10);
 
 xlabel('age $a$')
 ylabel('time $t$')
@@ -210,8 +210,8 @@ for ii = 1:length(t_sample)
 end
 
 axes_handle = nexttile;
-surf_plot = surf(a_mesh,t_mesh,x_mesh);
-LessEdgeSurf(surf_plot);
+surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]);
+LessEdgeSurf(surf_plot,10,10);
 axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
 
 xlabel('age $a$')

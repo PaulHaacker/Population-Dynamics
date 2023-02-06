@@ -106,7 +106,7 @@ u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabi
 
 u_constraint = @(rho) 0; % ignore constraints on D(t)
 % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
-% u_constraint =  @(rho) c*2*(rho(end) - D_star); % linear penalty of D(t)->0
+% u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
 % u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) - rho(end)); % Safety-Filter for D(t) > 0
 u_ctrl = @(rho) u_cancel(rho) + u_stabilize(rho) + u_constraint(rho);
 
@@ -192,7 +192,7 @@ end
 
 axes_handle = nexttile;
 surf_plot = surf(a_mesh,t_mesh,x_mesh);
-LessEdgeSurf(surf_plot);
+LessEdgeSurf(surf_plot,100,100);
 axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
 
 xlabel('age $a$')
@@ -206,7 +206,7 @@ title(tiles_handle,'Print Plot','Interpreter','Latex')
 
 nexttile
 plot(t_sample,u_ctrl_sample)
-title('input $u(t)$ - backstepping controller')
+title('input $u(t)$')
 xlabel('time t')
 grid on
 
@@ -214,7 +214,7 @@ output_ax_handle = nexttile;
 hold on
 plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
 plot(t_sample,y_sample)
-title('output $y(t)$ - backstepping controller')
+title('output $y(t)$')
 legend('desired output $y_\mathrm{des}$','output $y(t)$')
 xlabel('time $t$')
 grid on
@@ -223,7 +223,7 @@ nexttile
 hold on
 plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
 plot(t_sample,D_sample)
-title('dilution rate $D(t)$ - backstepping controller')
+title('dilution rate $D(t)$')
 legend('steady state dilution $D^\ast$','dilution rate $D(t)$')
 xlabel('time $t$')
 grid on
@@ -244,12 +244,14 @@ for ii = 1:length(t_sample)
 end
 
 axes_handle = nexttile;
-surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]);
-LessEdgeSurf(surf_plot);
-axes_handle.CameraPosition = [14.8362   50.7407    3.5923];
+% surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]); %
+% matlab blue
+surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
+LessEdgeSurf(surf_plot,20,20);
+axes_handle.CameraPosition = [16.7896   57.3334    3.7910];
 xlabel('age $a$')
 ylabel('time $t$')
-title('population density $f(t,a)$ - backstepping controller')
+title('population density $f(t,a)$')
 
 %% functions
 

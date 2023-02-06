@@ -1,4 +1,4 @@
-function [] = LessEdgeSurf(surf_plot)
+function [] = LessEdgeSurf(surf_plot,xnumlines,ynumlines)
 % reduces the amount of mesh lines in a surf plot.
 % Input: surf_plot - surface handle.
 
@@ -12,8 +12,6 @@ Z=surf_plot.ZData;
 %%Divide the lengths by the number of lines needed
 xlength = size(Z,2);
 ylength = size(Z,1);
-xnumlines = 10; % 10 lines
-ynumlines = 10; % 10 partitions
 xspacing = round(xlength/xnumlines);
 yspacing = round(ylength/ynumlines);
 
