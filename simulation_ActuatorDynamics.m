@@ -95,10 +95,18 @@ parameter.omega(2) = omega(2);
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 20;
+y_des = .20;
 
 % --- define controller - backstepping type
 c = 2; % control gain c > 0
+D_min = 0; % minimum Dilution rate constraint for Safety-Filter
+D_max = 3; % maximum Dilution rate constraint for Safety-Filter
+h_fcn = @(D) -(D-D_min).*(D-D_max); % safety function for D_min <= D(t) <= D_max
+L_g_h = @(D) -2*D + D_max + D_min; % lie derivative of h(D) = -(D-D_min)(D-D_max) along g(D) == 1;
+
+if D_star < D_min || D_star > D_max
+    error('equilibrium dilution not within constraints')
+end
 
 u_cancel = @(rho) -rho(end)-p/(C_mat*rho(1:end-1))...
             *(rho(1:end-1)'*(eval_phi(phi,A)-eval_phi(phi,0)))-mu(0); % cancelling terms
@@ -107,14 +115,18 @@ u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabi
 u_constraint = @(rho) 0; % ignore constraints on D(t)
 % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
 % u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
-% u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) - rho(end)); % Safety-Filter for D(t) > 0
+% u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
+%                 +(-rho(end)+D_min)); % Safety-Filter for D(t) > D_min
+% u_constraint =  @(rho) max(0,-(u_cancel(rho) + u_stabilize(rho))*L_g_h(rho(end))...
+%                         - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min,D_max]
+
 u_ctrl = @(rho) u_cancel(rho) + u_stabilize(rho) + u_constraint(rho);
 
 dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
                       u_ctrl(rho)];
 
 lambda_0 = zeros(size(A_mat,1),1); % initial conditions
-lambda_0(end) = 1;
+lambda_0(end) = 100;
 rho_0 = [lambda_0;D_star];
 tspan = [0 20]; % simulation horizon
 
