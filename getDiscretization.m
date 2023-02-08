@@ -11,7 +11,7 @@ A = parameter.A; % max age - double
 mu = parameter.mu; % constant mortality rate - double
 mu_int = parameter.mu_int; % mortality rate integral - function
 k = parameter.k; % birth kernel - function handle
-p = parameter.p; % output kernel - double
+p = parameter.p; % output kernel - function handle
 D_star = parameter.D_star; % steady-state dilution rate - double
 
 % parameters for IC - paper [Schmidt17]
@@ -138,7 +138,7 @@ A_mat = eye(N)*D_star - Phi_1\Phi_2;
 % output matrix, where y(t) = C*lambda(t)
 C_mat = zeros(size(phi))';
 for ii = 1: length(phi)
-   C_mat(ii) = p*integral(@(a) phi{ii}(a),0,A);
+   C_mat(ii) = integral(@(a)p(a).*phi{ii}(a),0,A);
 end
 
 end

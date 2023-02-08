@@ -9,36 +9,36 @@ clear
 
 %% ------ parameters
 
-% [Schmidt17]
-A = 2; % max age
-mu = @(a) .1; % mortality rate fcn
-k = @(a) 2*a.*(A-a); % birth kernel
-p = 1; % output kernel
-manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
-D_star = 1; % steady-state dilution rate
-y0 = 1; % initial output
-c1 = -.066;
-c2 = -.9;
-x0 = @(a) c1*a + exp(c2*a); % IC
-sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-omega(1) = 55.4606;
-sigma(2) = -4.9866;
-omega(2) = 95.7048;
-
-% % [KurthSawodny21]
+% % [Schmidt17]
 % A = 2; % max age
-% mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
-% k = @(a) a; % birth kernel
-% p = 1; % output kernel
-% manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
-% mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
-% D_star = 0.4837;
+% mu = @(a) .1; % mortality rate fcn
+% k = @(a) 2*a.*(A-a); % birth kernel
+% p = @(a) 1; % output kernel
+% manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
+% D_star = 1; % steady-state dilution rate
 % y0 = 1; % initial output
-% x0 = @(a) 8-3*a; % IC
-% sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-% omega(1) = 48.0574;
-% sigma(2) = -2.3838;
-% omega(2) = 87.8539;
+% c1 = -.066;
+% c2 = -.9;
+% x0 = @(a) c1*a + exp(c2*a); % IC
+% sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+% omega(1) = 55.4606;
+% sigma(2) = -4.9866;
+% omega(2) = 95.7048;
+
+% [KurthSawodny21]
+A = 2; % max age
+mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
+k = @(a) a; % birth kernel
+p = @(a) 1+.1*a.^2; % output kernel
+manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
+mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
+D_star = 0.4837;
+y0 = 1; % initial output
+x0 = @(a) 8-3*a; % IC
+sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+omega(1) = 48.0574;
+sigma(2) = -2.3838;
+omega(2) = 87.8539;
 
 %% stash of unordered parameter sets
 
@@ -61,8 +61,10 @@ N_EV = length(sigma); % number of nonzero eigenvalues considered
 sign_ImaginaryPart = 1; % only works for +1
 EV = -sigma/A + 1i*omega/(2*pi*A)*sign_ImaginaryPart;
 
-%% ------ find integral of mortality rate symbolically
+%% ------ symbolic treatment of parameters
 
+% integral of mortality rate needed for eigenfunctions in discretization
+% find integral of mortality rate symbolically
 if ~manuallyProvideMuINT
     syms a
     mu_sym = mu(a);
@@ -70,13 +72,19 @@ if ~manuallyProvideMuINT
     mu_int = matlabFunction(mu_int_sym);
 end
 
+% derivative of birth kernel needed for controller
+syms p_sym(a)
+p_sym(a) = p(a);
+p_prime_sym = diff(p_sym,a);
+p_prime = matlabFunction(p_prime_sym);
+
 %% get discretization
 
 parameter.A = A; % max age - double
 parameter.mu = mu; % mortality rate - function
 parameter.mu_int = mu_int; % mortality rate integral - function
 parameter.k = k; % birth kernel - function handle
-parameter.p = p; % output kernel - double
+parameter.p = p; % output kernel - function handle
 parameter.D_star = D_star; % steady-state dilution rate - double
 
 % parameters for IC - paper [Schmidt17]
@@ -99,7 +107,7 @@ parameter.omega(2) = omega(2);
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 1;
+y_des = 8;
 
 % --- controller parameters
 c = 2; % control gain c > 0
@@ -109,7 +117,7 @@ h_fcn = @(D) -(D-D_min).*(D-D_max); % safety function for D_min <= D(t) <= D_max
 L_g_h = @(D) -2*D + D_max + D_min; % lie derivative of h(D) = -(D-D_min)(D-D_max) along g(D) == 1;
 int_par = zeros(size(phi)); % numerical representation of the integral part of the cancelling controller
 for ii = 1:length(phi)
-    int_par(ii) = integral(@(a)mu(a).*phi{ii}(a),0,A);
+    int_par(ii) = integral(@(a)(p_prime(a)-p(a).*mu(a)).*phi{ii}(a),0,A);
 end
 
 if D_star < D_min || D_star > D_max
@@ -117,8 +125,8 @@ if D_star < D_min || D_star > D_max
 end
 
 % --- define controller - backstepping type
-u_cancel = @(rho) -rho(end)-p/(C_mat*rho(1:end-1))...
-            *rho(1:end-1)'*(eval_phi(phi,A)-eval_phi(phi,0)+int_par); % cancelling terms
+u_cancel = @(rho) -rho(end)-1/(C_mat*rho(1:end-1))...
+            *(p(A)*eval_phi(phi,A)-p(0)*eval_phi(phi,0)-int_par)'*rho(1:end-1); % cancelling terms
 u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabilizing terms
 
 u_constraint = @(rho) 0; % ignore constraints on D(t)
@@ -137,7 +145,7 @@ dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
 lambda_0 = zeros(size(A_mat,1),1); % initial conditions
 lambda_0(end) = 1;
 rho_0 = [lambda_0;D_star];
-tspan = [0 20]; % simulation horizon
+tspan = [0 10]; % simulation horizon
 
 [t_sample,rho_sample] = ode45(dynamics,tspan,rho_0); % run simulation
 
