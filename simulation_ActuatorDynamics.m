@@ -9,36 +9,36 @@ clear
 
 %% ------ parameters
 
-% % [Schmidt17]
-% A = 2; % max age
-% mu = @(a) .1; % mortality rate fcn
-% k = @(a) 2*a.*(A-a); % birth kernel
-% p = @(a) 1; % output kernel
-% manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
-% D_star = 1; % steady-state dilution rate
-% y0 = 1; % initial output
-% c1 = -.066;
-% c2 = -.9;
-% x0 = @(a) c1*a + exp(c2*a); % IC
-% sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-% omega(1) = 55.4606;
-% sigma(2) = -4.9866;
-% omega(2) = 95.7048;
-
-% [KurthSawodny21]
+% [Schmidt17]
 A = 2; % max age
-mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
-k = @(a) a; % birth kernel
-p = @(a) 1+.1*a.^2; % output kernel
-manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
-mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
-D_star = 0.4837;
+mu = @(a) .1; % mortality rate fcn
+k = @(a) 2*a.*(A-a); % birth kernel
+p = @(a) 1; % output kernel
+manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
+D_star = 1; % steady-state dilution rate
 y0 = 1; % initial output
-x0 = @(a) 8-3*a; % IC
-sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-omega(1) = 48.0574;
-sigma(2) = -2.3838;
-omega(2) = 87.8539;
+c1 = -.066;
+c2 = -.9;
+x0 = @(a) c1*a + exp(c2*a); % IC
+sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+omega(1) = 55.4606;
+sigma(2) = -4.9866;
+omega(2) = 95.7048;
+
+% % [KurthSawodny21]
+% A = 2; % max age
+% mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
+% k = @(a) a; % birth kernel
+% p = @(a) 1+.1*a.^2; % output kernel
+% manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
+% mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
+% D_star = 0.4837;
+% y0 = 1; % initial output
+% x0 = @(a) 8-3*a; % IC
+% sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+% omega(1) = 48.0574;
+% sigma(2) = -2.3838;
+% omega(2) = 87.8539;
 
 %% stash of unordered parameter sets
 
@@ -107,7 +107,7 @@ parameter.omega(2) = omega(2);
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 8;
+y_des = 1;
 
 % --- controller parameters
 c = 2; % control gain c > 0
@@ -143,7 +143,7 @@ dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
                       u_ctrl(rho)];
 
 lambda_0 = zeros(size(A_mat,1),1); % initial conditions
-lambda_0(end) = 1;
+lambda_0(end) = 1; % DO NOT change IC here, but in x0
 rho_0 = [lambda_0;D_star];
 tspan = [0 10]; % simulation horizon
 
@@ -165,68 +165,68 @@ end
 
 %% plot results - P-controller stabilizing setpoint DEBUG PLOT
 
-figure('units','normalized','outerposition',[0 0 1 1])
-tiles_handle = tiledlayout(2,2);
-title(tiles_handle,'Debug Plot','Interpreter','Latex')
-
-nexttile
-plot(t_sample,lambda_sample)
-title('discretized states $\lambda(t)$ - backstepping controller')
-legend('1','2','3','4','5','6')
-xlabel('time t')
-grid on
-
-output_ax_handle = nexttile;
-hold on
-plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
-plot(t_sample,y_sample)
-title('output $y(t)$ - backstepping controller')
-legend('desired output $y_\mathrm{des}$','output $y(t)$')
-xlabel('time $t$')
-grid on
-% str = {'steady-state error $\Delta y = y_\mathrm{ss} - y_\mathrm{des}$ = '...
-%     ,num2str(y_sample(end)-y_des)};
-% text(max(xlim), min(ylim),str, 'Horiz','right', 'Vert','top')
-
-% REMARK: notation in 
-% - documentation is Dilution rate D(t), voltage input u(t)
-
-nexttile
-hold on
-plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
-plot(t_sample,D_sample)
-plot(t_sample,u_ctrl_sample)
-plot(t_sample,u_cancel_sample)
-plot(t_sample,u_stabilize_sample)
-title('dilution rate $D(t)$ and input $u(t)$ - backstepping controller')
-legend('steady state dilution $D^\ast$','dilution rate $D(t)$','input $u(t) = u_\mathrm c(t) +u_\mathrm s(t)$',...
-    'cancelling terms $u_\mathrm c(t)$','stabilizing terms $u_\mathrm s(t)$')
-xlabel('time $t$')
-grid on
-
-% plot the PDE state where x(t,a) = lambda(t)'*phi(a);
-
-% time sample from above
-% define domain sample
-a_sample = 0:0.1:A;
-
-[a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
-x_mesh = zeros(size(a_mesh));
-
-for ii = 1:length(t_sample)
-    for jj = 1:length(a_sample)
-        x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
-    end
-end
-
-axes_handle = nexttile;
-surf_plot = surf(a_mesh,t_mesh,x_mesh);
-LessEdgeSurf(surf_plot,20,20);
-axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
-
-xlabel('age $a$')
-ylabel('time $t$')
-title('population density $x(t,a)$ - backstepping controller')
+% figure('units','normalized','outerposition',[0 0 1 1])
+% tiles_handle = tiledlayout(2,2);
+% title(tiles_handle,'Debug Plot','Interpreter','Latex')
+% 
+% nexttile
+% plot(t_sample,lambda_sample)
+% title('discretized states $\lambda(t)$ - backstepping controller')
+% legend('1','2','3','4','5','6')
+% xlabel('time t')
+% grid on
+% 
+% output_ax_handle = nexttile;
+% hold on
+% plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
+% plot(t_sample,y_sample)
+% title('output $y(t)$ - backstepping controller')
+% legend('desired output $y_\mathrm{des}$','output $y(t)$')
+% xlabel('time $t$')
+% grid on
+% % str = {'steady-state error $\Delta y = y_\mathrm{ss} - y_\mathrm{des}$ = '...
+% %     ,num2str(y_sample(end)-y_des)};
+% % text(max(xlim), min(ylim),str, 'Horiz','right', 'Vert','top')
+% 
+% % REMARK: notation in 
+% % - documentation is Dilution rate D(t), voltage input u(t)
+% 
+% nexttile
+% hold on
+% plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+% plot(t_sample,D_sample)
+% plot(t_sample,u_ctrl_sample)
+% plot(t_sample,u_cancel_sample)
+% plot(t_sample,u_stabilize_sample)
+% title('dilution rate $D(t)$ and input $u(t)$ - backstepping controller')
+% legend('steady state dilution $D^\ast$','dilution rate $D(t)$','input $u(t) = u_\mathrm c(t) +u_\mathrm s(t)$',...
+%     'cancelling terms $u_\mathrm c(t)$','stabilizing terms $u_\mathrm s(t)$')
+% xlabel('time $t$')
+% grid on
+% 
+% % plot the PDE state where x(t,a) = lambda(t)'*phi(a);
+% 
+% % time sample from above
+% % define domain sample
+% a_sample = 0:0.1:A;
+% 
+% [a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
+% x_mesh = zeros(size(a_mesh));
+% 
+% for ii = 1:length(t_sample)
+%     for jj = 1:length(a_sample)
+%         x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+%     end
+% end
+% 
+% axes_handle = nexttile;
+% surf_plot = surf(a_mesh,t_mesh,x_mesh);
+% LessEdgeSurf(surf_plot,20,20);
+% axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
+% 
+% xlabel('age $a$')
+% ylabel('time $t$')
+% title('population density $x(t,a)$ - backstepping controller')
 
 %% plot results - P-controller stabilizing setpoint KRSTIC plot
 figure('units','normalized','outerposition',[0 0 1 1])
@@ -281,6 +281,60 @@ axes_handle.CameraPosition = [16.7896   57.3334    3.7910];
 xlabel('age $a$')
 ylabel('time $t$')
 title('population density $f(t,a)$')
+
+%% plot results - transformed coordinates
+    
+% notice that the transformation includes the desired equilibrium profile,
+% so find the desired equilibrium boundary value from y_des: 
+f_star_0 = y_des/integral(@(a) p(a).*phi{1}(a),0,A);
+
+% first, find the adjoint eigenfunction (of the zero eigenvalue of the
+% differential age operator) as a lookup table
+integrand_pi = @(s) k(s).*exp(-mu_int(s)-D_star*s);
+a_vec_lookup = linspace(0,A,20);
+pi_lookup = zeros(size(a_vec_lookup));
+integral_pi = @(a) integral(integrand_pi,a,A);
+for kk = 1:length(a_vec_lookup)
+    a_sample = a_vec_lookup(kk);
+    pi_lookup(kk) = exp(mu_int(a_sample)+D_star*a_sample).*integral_pi(a_sample);
+end
+
+pi_fcn = @(a) interp1(a_vec_lookup,pi_lookup,a);
+
+% now find pi_vec
+f_star_fcn = @(a) f_star_0*phi{1}(a); % desired equilibrium profile
+
+pi_vec_denominator = integral(@(a)pi_fcn(a).*f_star_fcn(a),0,A);
+
+pi_vec = zeros(size(phi));
+for kk = 1:length(pi_vec)
+    pi_vec(kk) = integral(@(a) pi_fcn(a).*phi{kk}(a),0,A)/pi_vec_denominator;
+end
+
+% extract transformed states
+eta_sample = log(pi_vec'*lambda_sample');
+psi_sample_posTime = (eval_phi(phi,0)'*lambda_sample')./(f_star_0*pi_vec'*lambda_sample')-1;
+t_sample_negTime = -2:.01:0;
+psi_sample_negTime = phi{end}(-t_sample_negTime)./f_star_fcn(-t_sample_negTime)/pi_vec(end) -1;
+
+% plotting
+figure
+tiles_handle = tiledlayout(2,1);
+title(tiles_handle,'transformed states','Interpreter','Latex')
+
+nexttile
+plot(t_sample,eta_sample)
+title('1-dim. state $\eta(t)$')
+xlabel('time $t$')
+grid on
+
+nexttile
+hold on
+plot(t_sample,psi_sample_posTime)
+plot(t_sample_negTime,psi_sample_negTime)
+title('infinite-dim. state $\psi(t)$')
+xlabel('time $t$')
+grid on
 
 %% functions
 
