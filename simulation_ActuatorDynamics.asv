@@ -9,36 +9,36 @@ clear
 
 %% ------ parameters
 
-% [Schmidt17]
-A = 2; % max age
-mu = @(a) .1; % mortality rate fcn
-k = @(a) 2*a.*(A-a); % birth kernel
-p = 1; % output kernel
-manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
-D_star = 1; % steady-state dilution rate
-y0 = 1; % initial output
-c1 = -.066;
-c2 = -.9;
-x0 = @(a) c1*a + exp(c2*a); % IC
-sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-omega(1) = 55.4606;
-sigma(2) = -4.9866;
-omega(2) = 95.7048;
-
-% % [KurthSawodny21]
+% % [Schmidt17]
 % A = 2; % max age
-% mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
-% k = @(a) a; % birth kernel
+% mu = @(a) .1; % mortality rate fcn
+% k = @(a) 2*a.*(A-a); % birth kernel
 % p = 1; % output kernel
-% manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
-% mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
-% D_star = 0.4837;
+% manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
+% D_star = 1; % steady-state dilution rate
 % y0 = 1; % initial output
-% x0 = @(a) 8-3*a; % IC
-% sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-% omega(1) = 48.0574;
-% sigma(2) = -2.3838;
-% omega(2) = 87.8539;
+% c1 = -.066;
+% c2 = -.9;
+% x0 = @(a) c1*a + exp(c2*a); % IC
+% sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+% omega(1) = 55.4606;
+% sigma(2) = -4.9866;
+% omega(2) = 95.7048;
+
+% [KurthSawodny21]
+A = 2; % max age
+mu = @(a) 1/(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
+k = @(a) a; % birth kernel
+p = 1; % output kernel
+manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
+mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
+D_star = 0.4837;
+y0 = 1; % initial output
+x0 = @(a) 8-3*a; % IC
+sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+omega(1) = 48.0574;
+sigma(2) = -2.3838;
+omega(2) = 87.8539;
 
 %% stash of unordered parameter sets
 
@@ -99,7 +99,7 @@ parameter.omega(2) = omega(2);
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 1;
+y_des = 2;
 
 % --- controller parameters
 c = 2; % control gain c > 0
@@ -118,7 +118,7 @@ end
 
 % --- define controller - backstepping type
 u_cancel = @(rho) -rho(end)-p/(C_mat*rho(1:end-1))...
-            *rho(1:end-1)'*(eval_phi(phi,A)-eval_phi(phi,0)+int_par); % cancelling terms
+            *rho(1:end-1)'*(eval_phi(phi,A)-eval_phi(phi,0)+int); % cancelling terms
 u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabilizing terms
 
 u_constraint = @(rho) 0; % ignore constraints on D(t)
@@ -213,7 +213,7 @@ end
 
 axes_handle = nexttile;
 surf_plot = surf(a_mesh,t_mesh,x_mesh);
-LessEdgeSurf(surf_plot,20,20);
+LessEdgeSurf(surf_plot,100,100);
 axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
 
 xlabel('age $a$')
