@@ -9,36 +9,36 @@ clear
 
 %% ------ parameters
 
-% % [Schmidt17]
-% A = 2; % max age
-% mu = @(a) .1; % mortality rate fcn
-% k = @(a) 2*a.*(A-a); % birth kernel
-% p = @(a) 1; % output kernel
-% manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
-% D_star = 1; % steady-state dilution rate
-% y0 = 1; % initial output
-% c1 = -.066;
-% c2 = -.9;
-% x0 = @(a) c1*a + exp(c2*a); % IC
-% sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-% omega(1) = 55.4606;
-% sigma(2) = -4.9866;
-% omega(2) = 95.7048;
-
-% [KurthSawodny21]
+% [Schmidt17]
 A = 2; % max age
-mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
-k = @(a) a; % birth kernel
-p = @(a) 1+.1*a.^2; % output kernel
-manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
-mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
-D_star = 0.4837;
+mu = @(a) .1; % mortality rate fcn
+k = @(a) 2*a.*(A-a); % birth kernel
+p = @(a) 1; % output kernel
+manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
+D_star = 1; % steady-state dilution rate
 y0 = 1; % initial output
-x0 = @(a) 8-3*a; % IC
-sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-omega(1) = 48.0574;
-sigma(2) = -2.3838;
-omega(2) = 87.8539;
+c1 = -.066;
+c2 = -.9;
+x0 = @(a) c1*a + exp(c2*a); % IC
+sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+omega(1) = 55.4606;
+sigma(2) = -4.9866;
+omega(2) = 95.7048;
+
+% % [KurthSawodny21]
+% A = 2; % max age
+% mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
+% k = @(a) a; % birth kernel
+% p = @(a) 1+.1*a.^2; % output kernel
+% manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
+% mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
+% D_star = 0.4837;
+% y0 = 1; % initial output
+% x0 = @(a) 8-3*a; % IC
+% sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+% omega(1) = 48.0574;
+% sigma(2) = -2.3838;
+% omega(2) = 87.8539;
 
 %% stash of unordered parameter sets
 
@@ -107,7 +107,7 @@ parameter.omega(2) = omega(2);
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 20;
+y_des = 15;
 
 % --- controller parameters
 c = 2; % control gain c > 0
@@ -132,10 +132,10 @@ u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabi
 % u_constraint = @(rho) 0; % ignore constraints on D(t)
 % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
 % u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
-% u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
-%                 +(-rho(end)+D_min)); % Safety-Filter for D(t) > D_min
-u_constraint =  @(rho) max(0,-(u_cancel(rho) + u_stabilize(rho))*L_g_h(rho(end))...
-                        - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min,D_max]
+u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
+                +(-rho(end)+D_min)); % Safety-Filter for D(t) > D_min
+% u_constraint =  @(rho) max(0,-(u_cancel(rho) + u_stabilize(rho))*L_g_h(rho(end))...
+%                         - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min,D_max]
 
 u_ctrl = @(rho) u_cancel(rho) + u_stabilize(rho) + u_constraint(rho);
 
@@ -251,7 +251,8 @@ grid on
 nexttile
 hold on
 plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
-plot(t_sample,D_sample)
+area(t_sample(D_sample<= D_min),D_sample(D_sample<= D_min), D_min,'FaceColor',[0.8500 0.3250 0.0980],'HandleVisibility','off')
+plot(t_sample,D_sample,'b')
 title('dilution rate $D(t)$')
 legend('steady state dilution $D^\ast$','dilution rate $D(t)$')
 xlabel('time $t$')
@@ -318,8 +319,8 @@ t_sample_negTime = -2:.01:0;
 psi_sample_negTime = phi{end}(-t_sample_negTime)./f_star_fcn(-t_sample_negTime)/pi_vec(end) -1;
 
 % plotting
-figure
-tiles_handle = tiledlayout(2,1);
+figure('units','normalized','outerposition',[0 0 1 1])
+tiles_handle = tiledlayout(2,2);
 title(tiles_handle,'transformed states','Interpreter','Latex')
 
 nexttile
@@ -334,6 +335,40 @@ hold on
 plot(t_sample,psi_sample_posTime)
 plot(t_sample_negTime,psi_sample_negTime)
 title('infinite-dim. state $\psi(t)$')
+xlabel('time $t$')
+grid on
+
+% phase portrait plot
+nexttile
+hold on
+plot(D_sample,eta_sample)
+title('phase portrait')
+xlabel('Dilution rate $D$')
+ylabel('1-dim. state $\eta$')
+grid on
+
+% Lyapunov Functional
+par_sigma = .1; % suff small parameter
+par_M_hat = 2*exp(2*par_sigma*A)/par_sigma; % suff large parameter
+delta_sample = D_sample' - D_star - log(y_sample/y_des); % dilution error
+G_Lyap_Sample = zeros(size(t_sample)); % Lyap Functional G wrt psi
+t_sample_ext = [t_sample_negTime, t_sample']; % extended time sample
+psi_sample_ext = [psi_sample_negTime,psi_sample_posTime]; % extended psi sample
+for kk = length(t_sample_negTime)+1:length(t_sample_ext)
+    indx_start = find(t_sample_ext>=t_sample_ext(kk)-A,1);
+    psi_stage = psi_sample_ext(indx_start:kk);
+    t_sample_stage = t_sample_ext(indx_start:kk);
+    G_num = max(abs(psi_stage).*exp(par_sigma*(t_sample_stage-t_sample_ext(kk))));
+    G_den = 1 + min(0,min(psi_stage));
+    G_Lyap_Sample(kk-length(t_sample_negTime)) = G_num/G_den;
+end
+C_Lyap_Sample = .5*eta_sample.^2+.5*delta_sample.^2+.5*par_M_hat*G_Lyap_Sample'.^2;
+
+% plot
+nexttile
+hold on
+plot(t_sample,C_Lyap_Sample)
+title('Lyapunov Functional $\tilde C(\eta(t),\delta(t),\psi_t)$')
 xlabel('time $t$')
 grid on
 

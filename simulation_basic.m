@@ -91,7 +91,7 @@ parameter.omega(2) = omega(2);
 % here, with steady state input u(t) == D_star
 % denote the simulation state by lambda
 
-D_ctrl = @(t,lambda) D_star;
+D_ctrl = @(t,lambda) D_star*1.5;
 
 dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
 
