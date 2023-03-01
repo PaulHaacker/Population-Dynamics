@@ -107,11 +107,11 @@ parameter.omega(2) = omega(2);
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 20;
+y_des = 10;
 
 % --- controller parameters
 c = 2; % control gain c > 0
-k_safety = 1; % safety gain "rate of allowed safety dissipation"
+k_safety = 2*(c+1); % safety gain "rate of allowed safety dissipation"
 D_min = 0; % minimum Dilution rate constraint for Safety-Filter
 D_max = 3; % maximum Dilution rate constraint for Safety-Filter
 h_fcn = @(D) -(D-D_min).*(D-D_max); % safety function for D_min <= D(t) <= D_max
@@ -340,8 +340,8 @@ for kk = length(t_sample_negTime)+1:length(t_sample_ext)
 end
 C_Lyap_Sample = .5*eta_sample.^2+.5*delta_sample.^2+.5*par_M_hat*G_Lyap_Sample'.^2;
 
-% (quasistatic) active filter set.
-eta_ASF_0 = (c+1-k_safety)/c*D_sample - (c+1)*D_star/c;
+% % (quasistatic) active filter set.
+% eta_ASF_0 = (c+1-k_safety)/c*D_sample - (c+1)*D_star/c;
 
 % plotting
 figure('units','normalized','outerposition',[0 0 1 1])
@@ -374,13 +374,21 @@ grid on
 nexttile
 hold on
 traj_plot = plot(D_sample,eta_sample);
+setpoint_pl = plot(D_star, 0, 'k.','MarkerSize', 20);
+D_lim = xlim;
+eta_ASF_0 = (c+1-k_safety)/c*D_lim - (c+1)*D_star/c;
+plot(D_lim,eta_ASF_0,'r','HandleVisibility','off')
 help1 = ylim;
-area_plot = area(D_sample,eta_ASF_0,help1(1),'FaceColor','#ffcccb');
+area_plot = area(D_lim,eta_ASF_0,help1(1),'FaceColor','#ffcccb');
 area_plot.EdgeColor = 'none';
 area_plot.FaceAlpha = .5;
-plot(D_sample,eta_ASF_0,'r')
+legend('trajectory $(D,\eta)(t)$',...
+    'setpoint $(D,\eta,\psi) = (D^\star,0,0)$',...
+    'quasistatic active safety filter set $\mathcal{X}_{\mathrm{ASF},\psi = 0}$',...
+    'Location', 'best')
 uistack(traj_plot,'top')
-title('phase portrait')
+uistack(setpoint_pl,'top')
+title('phase portrait projected to $D$-$\eta$ plane')
 xlabel('Dilution rate $D$')
 ylabel('1-dim. state $\eta$')
 grid on
