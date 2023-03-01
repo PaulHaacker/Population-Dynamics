@@ -107,11 +107,12 @@ parameter.omega(2) = omega(2);
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 15;
+y_des = 20;
 
 % --- controller parameters
 c = 2; % control gain c > 0
-D_min = 0.3; % minimum Dilution rate constraint for Safety-Filter
+k_safety = 1; % safety gain "rate of allowed safety dissipation"
+D_min = 0; % minimum Dilution rate constraint for Safety-Filter
 D_max = 3; % maximum Dilution rate constraint for Safety-Filter
 h_fcn = @(D) -(D-D_min).*(D-D_max); % safety function for D_min <= D(t) <= D_max
 L_g_h = @(D) -2*D + D_max + D_min; % lie derivative of h(D) = -(D-D_min)(D-D_max) along g(D) == 1;
@@ -133,7 +134,7 @@ u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabi
 % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
 % u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
 u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
-                +(-rho(end)+D_min)); % Safety-Filter for D(t) > D_min
+                +k_safety*(-rho(end)+D_min)); % Safety-Filter for D(t) > D_min
 % u_constraint =  @(rho) max(0,-(u_cancel(rho) + u_stabilize(rho))*L_g_h(rho(end))...
 %                         - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min,D_max]
 
@@ -318,6 +319,30 @@ psi_sample_posTime = (eval_phi(phi,0)'*lambda_sample')./(f_star_0*pi_vec'*lambda
 t_sample_negTime = -2:.01:0;
 psi_sample_negTime = phi{end}(-t_sample_negTime)./f_star_fcn(-t_sample_negTime)/pi_vec(end) -1;
 
+% Lyapunov Functional
+par_sigma = .1; % suff small parameter
+par_M_hat = 2*exp(2*par_sigma*A)/par_sigma; % suff large parameter
+delta_sample = D_sample' - D_star - log(y_sample/y_des); % dilution error
+G_Lyap_Sample = zeros(size(t_sample)); % Lyap Functional G wrt psi
+t_sample_ext = [t_sample_negTime, t_sample']; % extended time sample
+psi_sample_ext = [psi_sample_negTime,psi_sample_posTime]; % extended psi sample
+g_1_Sample = zeros(size(t_sample)); % non-decreasing functional
+g_2_Sample = zeros(size(t_sample)); % non-increasing functional
+for kk = length(t_sample_negTime)+1:length(t_sample_ext)
+    indx_start = find(t_sample_ext>=t_sample_ext(kk)-A,1);
+    psi_stage = psi_sample_ext(indx_start:kk);
+    t_sample_stage = t_sample_ext(indx_start:kk);
+    G_num = max(abs(psi_stage).*exp(par_sigma*(t_sample_stage-t_sample_ext(kk))));
+    G_den = 1 + min(0,min(psi_stage));
+    G_Lyap_Sample(kk-length(t_sample_negTime)) = G_num/G_den;
+    g_1_Sample(kk-length(t_sample_negTime)) = min(psi_stage);
+    g_2_Sample(kk-length(t_sample_negTime)) = max(psi_stage);
+end
+C_Lyap_Sample = .5*eta_sample.^2+.5*delta_sample.^2+.5*par_M_hat*G_Lyap_Sample'.^2;
+
+% (quasistatic) active filter set.
+eta_ASF_0 = (c+1-k_safety)/c*D_sample - (c+1)*D_star/c;
+
 % plotting
 figure('units','normalized','outerposition',[0 0 1 1])
 tiles_handle = tiledlayout(2,2);
@@ -330,10 +355,17 @@ xlim([-A,t_sample(end)])
 xlabel('time $t$')
 grid on
 
-nexttile
+psi_plots_handle = nexttile;
 hold on
-plot(t_sample,psi_sample_posTime)
-plot(t_sample_negTime,psi_sample_negTime)
+plot_handle = plot(t_sample_ext,psi_sample_ext);
+plot(t_sample,g_1_Sample)
+plot(t_sample,g_2_Sample)
+xlabel('time $t$')
+legend('infinite-dim. state $\psi(t)$',...
+    'functional $g_1(\psi_t)= \min_{a\in[0,A]}\psi(t-a)$ non-decreasing',...
+    'functional $g_2(\psi_t)= \max_{a\in[0,A]}\psi(t-a)$ non-increasing',...
+    'Location','Southeast')
+uistack(plot_handle,'top')
 title('infinite-dim. state $\psi(t)$')
 xlabel('time $t$')
 grid on
@@ -341,30 +373,19 @@ grid on
 % phase portrait plot
 nexttile
 hold on
-plot(D_sample,eta_sample)
+traj_plot = plot(D_sample,eta_sample);
+help1 = ylim;
+area_plot = area(D_sample,eta_ASF_0,help1(1),'FaceColor','#ffcccb');
+area_plot.EdgeColor = 'none';
+area_plot.FaceAlpha = .5;
+plot(D_sample,eta_ASF_0,'r')
+uistack(traj_plot,'top')
 title('phase portrait')
 xlabel('Dilution rate $D$')
 ylabel('1-dim. state $\eta$')
 grid on
 
-% Lyapunov Functional
-par_sigma = .1; % suff small parameter
-par_M_hat = 2*exp(2*par_sigma*A)/par_sigma; % suff large parameter
-delta_sample = D_sample' - D_star - log(y_sample/y_des); % dilution error
-G_Lyap_Sample = zeros(size(t_sample)); % Lyap Functional G wrt psi
-t_sample_ext = [t_sample_negTime, t_sample']; % extended time sample
-psi_sample_ext = [psi_sample_negTime,psi_sample_posTime]; % extended psi sample
-for kk = length(t_sample_negTime)+1:length(t_sample_ext)
-    indx_start = find(t_sample_ext>=t_sample_ext(kk)-A,1);
-    psi_stage = psi_sample_ext(indx_start:kk);
-    t_sample_stage = t_sample_ext(indx_start:kk);
-    G_num = max(abs(psi_stage).*exp(par_sigma*(t_sample_stage-t_sample_ext(kk))));
-    G_den = 1 + min(0,min(psi_stage));
-    G_Lyap_Sample(kk-length(t_sample_negTime)) = G_num/G_den;
-end
-C_Lyap_Sample = .5*eta_sample.^2+.5*delta_sample.^2+.5*par_M_hat*G_Lyap_Sample'.^2;
-
-% plot
+% Lyap functional plot
 nexttile
 hold on
 plot(t_sample,C_Lyap_Sample)
