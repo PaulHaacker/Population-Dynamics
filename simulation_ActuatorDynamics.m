@@ -107,7 +107,7 @@ parameter.omega(2) = omega(2);
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 10;
+y_des = 3;
 
 % --- controller parameters
 c = 2; % control gain c > 0
@@ -127,14 +127,18 @@ end
 
 % --- define controller - backstepping type
 u_cancel = @(rho) -rho(end)-1/(C_mat*rho(1:end-1))...
-            *(p(A)*eval_phi(phi,A)-p(0)*eval_phi(phi,0)-int_par)'*rho(1:end-1); % cancelling terms
+            *(p(A)*eval_phi(phi,A)-p(0)*eval_phi(phi,0)-int_par)'*rho(1:end-1);
+            % cancelling terms - exact cancellation
+% u_cancel = @(rho) -rho(end)+D_star; % cancelling terms - super late botching (seems to work)
+% u_cancel = @(rho) 0; % cancelling terms - early botching (seems to work)
+% u_cancel = @(rho) -rho(end)+D_star*y_des/(C_mat*rho(1:end-1)); % cancelling terms - late botching (unstable)
 u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabilizing terms
 
-% u_constraint = @(rho) 0; % ignore constraints on D(t)
+u_constraint = @(rho) 0; % ignore constraints on D(t)
 % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
 % u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
-u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
-                +k_safety*(-rho(end)+D_min)); % Safety-Filter for D(t) > D_min
+% u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
+%                 +k_safety*(-rho(end)+D_min)); % Safety-Filter for D(t) > D_min
 % u_constraint =  @(rho) max(0,-(u_cancel(rho) + u_stabilize(rho))*L_g_h(rho(end))...
 %                         - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min,D_max]
 
@@ -245,7 +249,7 @@ hold on
 plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
 plot(t_sample,y_sample)
 title('output $y(t)$')
-legend('desired output $y_\mathrm{des}$','output $y(t)$')
+legend('desired output $y_\mathrm{des}$','output $y(t)$','Location', 'best')
 xlabel('time $t$')
 grid on
 
@@ -255,7 +259,7 @@ plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
 area(t_sample(D_sample<= D_min),D_sample(D_sample<= D_min), D_min,'FaceColor',[0.8500 0.3250 0.0980],'HandleVisibility','off')
 plot(t_sample,D_sample,'b')
 title('dilution rate $D(t)$')
-legend('steady state dilution $D^\ast$','dilution rate $D(t)$')
+legend('steady state dilution $D^\ast$','dilution rate $D(t)$','Location', 'best')
 xlabel('time $t$')
 grid on
 
