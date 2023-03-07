@@ -1,0 +1,105 @@
+function plot_std(par_sys,discretization,par_ctrl,results)
+%plot_std
+
+%% extract input parameters:
+
+%par_sys
+A = par_sys.A; % max age - double
+mu = par_sys.mu; % constant mortality rate - double
+mu_int = par_sys.mu_int; % mortality rate integral - function
+k = par_sys.k; % birth kernel - function handle
+p = par_sys.p; % output kernel - function handle
+D_star = par_sys.D_star; % steady-state dilution rate - double
+
+x0 = par_sys.x0; % function handle
+
+sigma(1) = par_sys.sigma(1); % eigenvalues
+omega(1) = par_sys.omega(1);
+sigma(2) = par_sys.sigma(2);
+omega(2) = par_sys.omega(2);
+
+%discretization
+A_mat = discretization.A_mat;
+C_mat = discretization.C_mat;
+phi = discretization.phi;
+
+%par_ctrl
+u_ctrl = par_ctrl.u_ctrl;
+D_min = par_ctrl.D_min;
+D_max = par_ctrl.D_max;
+y_des = par_ctrl.y_des;
+
+%results
+t_sample = results.t_sample;
+rho_sample = results.rho_sample;
+lambda_sample = results.lambda_sample;
+u_ctrl_sample = results.u_ctrl_sample;
+y_sample = results.y_sample;
+D_sample = results.D_sample;
+
+%% debug plot
+figure('units','normalized','outerposition',[0 0 1 1])
+tiles_handle = tiledlayout(2,2);
+title(tiles_handle,'Print Plot','Interpreter','Latex')
+
+nexttile
+plot(t_sample,u_ctrl_sample)
+title('input $u(t)$')
+xlabel('time t')
+grid on
+
+output_ax_handle = nexttile;
+hold on
+plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
+plot(t_sample,y_sample)
+title('output $y(t)$')
+legend('desired output $y_\mathrm{des}$','output $y(t)$','Location', 'best')
+xlabel('time $t$')
+grid on
+
+nexttile
+hold on
+plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+area(t_sample(D_sample<= D_min),D_sample(D_sample<= D_min), D_min,'FaceColor',[0.8500 0.3250 0.0980],'HandleVisibility','off')
+plot(t_sample,D_sample,'b')
+title('dilution rate $D(t)$')
+legend('steady state dilution $D^\ast$','dilution rate $D(t)$','Location', 'best')
+xlabel('time $t$')
+grid on
+
+% plot the PDE state where x(t,a) = lambda(t)'*phi(a);
+
+% time sample from above
+% define domain sample
+a_sample = 0:0.1:A;
+
+[a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
+x_mesh = zeros(size(a_mesh));
+
+for ii = 1:length(t_sample)
+    for jj = 1:length(a_sample)
+        x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+    end
+end
+
+axes_handle = nexttile;
+% surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]); %
+% matlab blue
+surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
+LessEdgeSurf(surf_plot,20,20);
+axes_handle.CameraPosition = [16.7896   57.3334    3.7910];
+xlabel('age $a$')
+ylabel('time $t$')
+title('population density $f(t,a)$')
+
+end
+
+function val = eval_phi(phi,a)
+% takes N-by-1 cell of functions phi and evaluates them at a, returns
+% values as N-by-1 matrix
+N = length(phi);
+val = zeros(size(phi));
+for kk = 1:N
+    val(kk) = phi{kk}(a);
+end
+end

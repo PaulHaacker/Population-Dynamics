@@ -10,10 +10,10 @@ clear
 %% booleans for plots
 debug_plot = false; % plot for debug
 standard_plot = true; % standard plot
-transformed_plot = false; % plot of transformed coordinates
+transformed_plot = true; % plot of transformed coordinates
 
 %% switch for control
-ctrl_mode = 'Karafyllis'; 'Backstepping'; % options: 'Backstepping', 'Karafyllis'
+ctrl_mode = 'Karafyllis';'Backstepping';  % options: 'Backstepping', 'Karafyllis'
 
 %% ------ parameters
 
@@ -130,7 +130,7 @@ switch ctrl_mode
         % --- Karafyllis' Transformation Controller (TC)
         % parameter
         Q_TC = 1; % TC gain parameter
-        sigma_TC = 3; % TC gain parameter
+        sigma_TC = 1; % TC gain parameter
         k_TC = 1; % TC gain parameter
         D_min_TC = D_min; % minimum Dilution rate constraint for TC
         D_max_TC = D_max; % maximum Dilution rate constraint for TC
@@ -175,22 +175,26 @@ switch ctrl_mode
         u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabilizing terms
 
         % --- safety override
-        u_constraint = @(rho) 0; % ignore constraints on D(t)
+%         u_constraint = @(rho) 0; % ignore constraints on D(t)
         % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
         % u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
-        % u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
-        %                 +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
+%         u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
+%                         +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
         % u_constraint =  @(rho) max(0,-(u_cancel(rho) + u_stabilize(rho))*L_g_h(rho(end))...
         %                         - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min_safe,D_max_safe]
 
         u_ctrl = @(rho) u_cancel(rho) + u_stabilize(rho) + u_constraint(rho);
+        
+        % additional plot parameters
+        par_ctrl.c = c;
+        par_ctrl.k_safety = k_safety;
 end
 
 par_ctrl.u_ctrl = u_ctrl;
 par_ctrl.D_min = D_min;
 par_ctrl.D_max = D_max;
 par_ctrl.y_des = y_des;
-
+par_ctrl.ctrl_mode = ctrl_mode;
 
 %% simulate system
 dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
@@ -221,251 +225,25 @@ end
 results.t_sample = t_sample;
 results.rho_sample = rho_sample;
 results.lambda_sample = lambda_sample;
-results.y_sample = u_ctrl_sample;
+results.u_ctrl_sample = u_ctrl_sample;
 results.y_sample = y_sample;
-
+results.D_sample = D_sample;
 
 %% plot results - P-controller stabilizing setpoint DEBUG PLOT
 
 if debug_plot
-    figure('units','normalized','outerposition',[0 0 1 1])
-    tiles_handle = tiledlayout(2,2);
-    title(tiles_handle,'Debug Plot','Interpreter','Latex')
-
-    nexttile
-    plot(t_sample,lambda_sample)
-    title('discretized states $\lambda(t)$ - backstepping controller')
-    legend('1','2','3','4','5','6')
-    xlabel('time t')
-    grid on
-
-    output_ax_handle = nexttile;
-    hold on
-    plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
-    plot(t_sample,y_sample)
-    title('output $y(t)$ - backstepping controller')
-    legend('desired output $y_\mathrm{des}$','output $y(t)$')
-    xlabel('time $t$')
-    grid on
-    % str = {'steady-state error $\Delta y = y_\mathrm{ss} - y_\mathrm{des}$ = '...
-    %     ,num2str(y_sample(end)-y_des)};
-    % text(max(xlim), min(ylim),str, 'Horiz','right', 'Vert','top')
-
-    % REMARK: notation in 
-    % - documentation is Dilution rate D(t), voltage input u(t)
-
-    nexttile
-    hold on
-    plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
-    plot(t_sample,D_sample)
-    plot(t_sample,u_ctrl_sample)
-    plot(t_sample,u_cancel_sample)
-    plot(t_sample,u_stabilize_sample)
-    title('dilution rate $D(t)$ and input $u(t)$ - backstepping controller')
-    legend('steady state dilution $D^\ast$','dilution rate $D(t)$','input $u(t) = u_\mathrm c(t) +u_\mathrm s(t)$',...
-        'cancelling terms $u_\mathrm c(t)$','stabilizing terms $u_\mathrm s(t)$')
-    xlabel('time $t$')
-    grid on
-
-    % plot the PDE state where x(t,a) = lambda(t)'*phi(a);
-
-    % time sample from above
-    % define domain sample
-    a_sample = 0:0.1:A;
-
-    [a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
-    x_mesh = zeros(size(a_mesh));
-
-    for ii = 1:length(t_sample)
-        for jj = 1:length(a_sample)
-            x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
-        end
-    end
-
-    axes_handle = nexttile;
-    surf_plot = surf(a_mesh,t_mesh,x_mesh);
-    LessEdgeSurf(surf_plot,20,20);
-    axes_handle.CameraPosition = [15.7853   91.8902    2.8718];
-
-    xlabel('age $a$')
-    ylabel('time $t$')
-    title('population density $x(t,a)$ - backstepping controller')
+    plot_debug(par_sys,discretization,par_ctrl,results)
 end
+
 %% plot results - P-controller stabilizing setpoint KRSTIC plot
 
 if standard_plot
-    figure('units','normalized','outerposition',[0 0 1 1])
-    tiles_handle = tiledlayout(2,2);
-    title(tiles_handle,'Print Plot','Interpreter','Latex')
-
-    nexttile
-    plot(t_sample,u_ctrl_sample)
-    title('input $u(t)$')
-    xlabel('time t')
-    grid on
-
-    output_ax_handle = nexttile;
-    hold on
-    plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
-    plot(t_sample,y_sample)
-    title('output $y(t)$')
-    legend('desired output $y_\mathrm{des}$','output $y(t)$','Location', 'best')
-    xlabel('time $t$')
-    grid on
-
-    nexttile
-    hold on
-    plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
-    area(t_sample(D_sample<= D_min),D_sample(D_sample<= D_min), D_min,'FaceColor',[0.8500 0.3250 0.0980],'HandleVisibility','off')
-    plot(t_sample,D_sample,'b')
-    title('dilution rate $D(t)$')
-    legend('steady state dilution $D^\ast$','dilution rate $D(t)$','Location', 'best')
-    xlabel('time $t$')
-    grid on
-
-    % plot the PDE state where x(t,a) = lambda(t)'*phi(a);
-
-    % time sample from above
-    % define domain sample
-    a_sample = 0:0.1:A;
-
-    [a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
-    x_mesh = zeros(size(a_mesh));
-
-    for ii = 1:length(t_sample)
-        for jj = 1:length(a_sample)
-            x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
-        end
-    end
-
-    axes_handle = nexttile;
-    % surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]); %
-    % matlab blue
-    surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
-    LessEdgeSurf(surf_plot,20,20);
-    axes_handle.CameraPosition = [16.7896   57.3334    3.7910];
-    xlabel('age $a$')
-    ylabel('time $t$')
-    title('population density $f(t,a)$')
+    plot_std(par_sys,discretization,par_ctrl,results)
 end
 
 %% plot results - transformed coordinates
-
 if transformed_plot
-    % notice that the transformation includes the desired equilibrium profile,
-    % so find the desired equilibrium boundary value from y_des: 
-    f_star_0 = y_des/integral(@(a) p(a).*phi{1}(a),0,A);
-
-    % first, find the adjoint eigenfunction (of the zero eigenvalue of the
-    % differential age operator) as a lookup table
-    integrand_pi = @(s) k(s).*exp(-mu_int(s)-D_star*s);
-    a_vec_lookup = linspace(0,A,20);
-    pi_lookup = zeros(size(a_vec_lookup));
-    integral_pi = @(a) integral(integrand_pi,a,A);
-    for kk = 1:length(a_vec_lookup)
-        a_sample = a_vec_lookup(kk);
-        pi_lookup(kk) = exp(mu_int(a_sample)+D_star*a_sample).*integral_pi(a_sample);
-    end
-
-    pi_fcn = @(a) interp1(a_vec_lookup,pi_lookup,a);
-
-    % now find pi_vec
-    f_star_fcn = @(a) f_star_0*phi{1}(a); % desired equilibrium profile
-
-    pi_vec_denominator = integral(@(a)pi_fcn(a).*f_star_fcn(a),0,A);
-
-    pi_vec = zeros(size(phi));
-    for kk = 1:length(pi_vec)
-        pi_vec(kk) = integral(@(a) pi_fcn(a).*phi{kk}(a),0,A)/pi_vec_denominator;
-    end
-
-    % extract transformed states
-    eta_sample = log(pi_vec'*lambda_sample');
-    psi_sample_posTime = (eval_phi(phi,0)'*lambda_sample')./(f_star_0*pi_vec'*lambda_sample')-1;
-    t_sample_negTime = -2:.01:0;
-    psi_sample_negTime = phi{end}(-t_sample_negTime)./f_star_fcn(-t_sample_negTime)/pi_vec(end) -1;
-
-    % Lyapunov Functional
-    par_sigma = .1; % suff small parameter
-    par_M_hat = 2*exp(2*par_sigma*A)/par_sigma; % suff large parameter
-    delta_sample = D_sample' - D_star - log(y_sample/y_des); % dilution error
-    G_Lyap_Sample = zeros(size(t_sample)); % Lyap Functional G wrt psi
-    t_sample_ext = [t_sample_negTime, t_sample']; % extended time sample
-    psi_sample_ext = [psi_sample_negTime,psi_sample_posTime]; % extended psi sample
-    g_1_Sample = zeros(size(t_sample)); % non-decreasing functional
-    g_2_Sample = zeros(size(t_sample)); % non-increasing functional
-    for kk = length(t_sample_negTime)+1:length(t_sample_ext)
-        indx_start = find(t_sample_ext>=t_sample_ext(kk)-A,1);
-        psi_stage = psi_sample_ext(indx_start:kk);
-        t_sample_stage = t_sample_ext(indx_start:kk);
-        G_num = max(abs(psi_stage).*exp(par_sigma*(t_sample_stage-t_sample_ext(kk))));
-        G_den = 1 + min(0,min(psi_stage));
-        G_Lyap_Sample(kk-length(t_sample_negTime)) = G_num/G_den;
-        g_1_Sample(kk-length(t_sample_negTime)) = min(psi_stage);
-        g_2_Sample(kk-length(t_sample_negTime)) = max(psi_stage);
-    end
-    C_Lyap_Sample = .5*eta_sample.^2+.5*delta_sample.^2+.5*par_M_hat*G_Lyap_Sample'.^2;
-
-    % % (quasistatic) active filter set.
-    % eta_ASF_0 = (c+1-k_safety)/c*D_sample - (c+1)*D_star/c;
-
-    % plotting
-    figure('units','normalized','outerposition',[0 0 1 1])
-    tiles_handle = tiledlayout(2,2);
-    title(tiles_handle,'transformed states','Interpreter','Latex')
-
-    nexttile
-    plot(t_sample,eta_sample)
-    title('1-dim. state $\eta(t)$')
-    xlim([-A,t_sample(end)])
-    xlabel('time $t$')
-    grid on
-
-    psi_plots_handle = nexttile;
-    hold on
-    plot_handle = plot(t_sample_ext,psi_sample_ext);
-    plot(t_sample,g_1_Sample)
-    plot(t_sample,g_2_Sample)
-    xlabel('time $t$')
-    legend('infinite-dim. state $\psi(t)$',...
-        'functional $g_1(\psi_t)= \min_{a\in[0,A]}\psi(t-a)$ non-decreasing',...
-        'functional $g_2(\psi_t)= \max_{a\in[0,A]}\psi(t-a)$ non-increasing',...
-        'Location','Southeast')
-    uistack(plot_handle,'top')
-    title('infinite-dim. state $\psi(t)$')
-    xlabel('time $t$')
-    grid on
-
-    % phase portrait plot
-    nexttile
-    hold on
-    traj_plot = plot(D_sample,eta_sample);
-    setpoint_pl = plot(D_star, 0, 'k.','MarkerSize', 20);
-    D_lim = xlim;
-    eta_ASF_0 = (c+1-k_safety)/c*D_lim - (c+1)*D_star/c;
-    plot(D_lim,eta_ASF_0,'r','HandleVisibility','off')
-    help1 = ylim;
-    area_plot = area(D_lim,eta_ASF_0,help1(1),'FaceColor','#ffcccb');
-    area_plot.EdgeColor = 'none';
-    area_plot.FaceAlpha = .5;
-    legend('trajectory $(D,\eta)(t)$',...
-        'setpoint $(D,\eta,\psi) = (D^\star,0,0)$',...
-        'quasistatic active safety filter set $\mathcal{X}_{\mathrm{ASF},\psi = 0}$',...
-        'Location', 'best')
-    uistack(traj_plot,'top')
-    uistack(setpoint_pl,'top')
-    title('phase portrait projected to $D$-$\eta$ plane')
-    xlabel('Dilution rate $D$')
-    ylabel('1-dim. state $\eta$')
-    grid on
-
-    % Lyap functional plot
-    nexttile
-    hold on
-    plot(t_sample,C_Lyap_Sample)
-    title('Lyapunov Functional $\tilde C(\eta(t),\delta(t),\psi_t)$')
-    xlabel('time $t$')
-    grid on
+    plot_transformed(par_sys,discretization,par_ctrl,results)
 end
 %% functions
 
