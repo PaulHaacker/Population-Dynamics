@@ -130,7 +130,7 @@ switch ctrl_mode
         % --- Karafyllis' Transformation Controller (TC)
         % parameter
         Q_TC = 1; % TC gain parameter
-        sigma_TC = 1; % TC gain parameter
+        sigma_TC = 3; % TC gain parameter
         k_TC = 1; % TC gain parameter
         D_min_TC = D_min; % minimum Dilution rate constraint for TC
         D_max_TC = D_max; % maximum Dilution rate constraint for TC
@@ -250,11 +250,11 @@ end
 function val = u_ctrl_TC_fcn(rho, zeta_fcn, exp_zeta, A_TC, B_TC, k_TC, sigma_TC, Q_TC, y_des, C_mat)
 % controller proposed by Karafyllis
 D = rho(end);
-% val = A_TC^2*B_TC^2 *(sigma_TC^2*Q_TC + 1)*exp_zeta(D).*(1-exp_zeta(D))./...
-%     sigma_TC / Q_TC / (B_TC +1) ./ (B_TC+ exp_zeta(D))^3 - k_TC*A_TC*B_TC*exp_zeta(D)...
-%     ./(B_TC+ exp_zeta(D))^2 .*(zeta_fcn(D)-sigma_TC *log(C_mat*rho(1:end-1)/y_des));
-val = - k_TC*A_TC*B_TC*exp_zeta(D)...
+val = A_TC^2*B_TC^2 *(sigma_TC^2*Q_TC + 1)*exp_zeta(D).*(1-exp_zeta(D))./...
+    sigma_TC / Q_TC / (B_TC +1) ./ (B_TC+ exp_zeta(D))^3 - k_TC*A_TC*B_TC*exp_zeta(D)...
     ./(B_TC+ exp_zeta(D))^2 .*(zeta_fcn(D)-sigma_TC *log(C_mat*rho(1:end-1)/y_des));
+% val = - k_TC*A_TC*B_TC*exp_zeta(D)...
+%     ./(B_TC+ exp_zeta(D))^2 .*(zeta_fcn(D)-sigma_TC *log(C_mat*rho(1:end-1)/y_des));
 end
 
 function val = eval_phi(phi,a)
