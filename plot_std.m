@@ -37,7 +37,7 @@ u_ctrl_sample = results.u_ctrl_sample;
 y_sample = results.y_sample;
 D_sample = results.D_sample;
 
-%% debug plot
+%% std plot
 figure('units','normalized','outerposition',[0 0 1 1])
 tiles_handle = tiledlayout(2,2);
 title(tiles_handle,'Print Plot','Interpreter','Latex')
@@ -60,10 +60,12 @@ grid on
 nexttile
 hold on
 plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+plot(t_sample,ones(size(D_sample))*D_min,'--b','Linewidth',1.5)
+plot(t_sample,ones(size(D_sample))*D_max,'--b','Linewidth',1.5,'HandleVisibility','off')
 area(t_sample(D_sample<= D_min),D_sample(D_sample<= D_min), D_min,'FaceColor',[0.8500 0.3250 0.0980],'HandleVisibility','off')
 plot(t_sample,D_sample,'b')
 title('dilution rate $D(t)$')
-legend('steady state dilution $D^\ast$','dilution rate $D(t)$','Location', 'best')
+legend('steady state dilution $D^\ast$','$D_\mathrm{min}$, $D_\mathrm{max}$','dilution rate $D(t)$','Location', 'best')
 xlabel('time $t$')
 grid on
 
