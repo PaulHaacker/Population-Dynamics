@@ -28,7 +28,7 @@ A = 2; % max age
 mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
 k = @(a) a; % birth kernel
 p = @(a) 1+.1*a.^2; % output kernel
-b = @(a) .1; % self-competition kernel
+b = @(a) .01; % self-competition kernel
 manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
 mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
 gamma = 0.4837; % generalized s.-s. Dilution Rate
@@ -91,7 +91,10 @@ parameter.omega(1) = omega(1);
 parameter.sigma(2) = sigma(2);
 parameter.omega(2) = omega(2);
 
-[A_mat, C_mat, phi, phi_3] = getDiscretizationSC(parameter);
+[A_mat, C_mat, phi, phi_3, outPar] = getDiscretizationSC(parameter);
+
+b_star = outPar.b_star;
+p_star = outPar.p_star;
 
 %% simulate linear system - Steady State Input
 % here, with steady state input u(t) == D_star
@@ -160,9 +163,10 @@ axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
 % equilibrium profile x^\ast(a), or better its family parameter.
 
 y_des = 12;
+D_des = gamma - y_des*b_star/p_star;
 
-% D_ctrl = @(lambda) D_star + log(C_mat*lambda/y_des);
-D_ctrl = @(lambda) gamma + (C_mat*lambda-y_des)/y_des;
+D_ctrl = @(lambda) D_des + log(C_mat*lambda/y_des);
+% D_ctrl = @(lambda) gamma + (C_mat*lambda-y_des)/y_des;
 
 dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda) ...
             -eye(size(A_mat))*(phi_3'*lambda))*lambda;
@@ -170,8 +174,6 @@ dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda) ...
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
 tspan = [0 6];
-
-[t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);
 
 y_sample = C_mat*lambda_sample';
 

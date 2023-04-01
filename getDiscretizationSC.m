@@ -1,4 +1,4 @@
-function [A_mat, C_mat, phi, phi_3] = getDiscretizationSC(parameter)
+function [A_mat, C_mat, phi, phi_3, outPar] = getDiscretizationSC(parameter)
 %% finding the matrices for the Galerkin-based simulation
 
 % choose the basis phi(a) = [zero eigenfunction; two first eigenfunction
@@ -150,5 +150,9 @@ C_mat = zeros(size(phi))';
 for ii = 1: length(phi)
    C_mat(ii) = integral(@(a)p(a).*phi{ii}(a),0,A);
 end
+
+%% ------ minor parameters for finding s.s. dilutiton
+outPar.b_star =  integral(@(a)b(a).*phi{1}(a),0,A);
+outPar.p_star =  integral(@(a)p(a).*phi{1}(a),0,A);
 
 end
