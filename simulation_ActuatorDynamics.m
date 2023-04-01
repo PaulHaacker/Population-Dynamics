@@ -17,36 +17,36 @@ ctrl_mode = 'Karafyllis';'Backstepping';  % options: 'Backstepping', 'Karafyllis
 
 %% ------ parameters
 
-% [Schmidt17]
-A = 2; % max age
-mu = @(a) .1; % mortality rate fcn
-k = @(a) 2*a.*(A-a); % birth kernel
-p = @(a) 1; % output kernel
-manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
-D_star = 1; % steady-state dilution rate
-y0 = 1; % initial output
-c1 = -.066;
-c2 = -.9;
-x0 = @(a) c1*a + exp(c2*a); % IC
-sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-omega(1) = 55.4606;
-sigma(2) = -4.9866;
-omega(2) = 95.7048;
-
-% % [KurthSawodny21]
+% % [Schmidt17]
 % A = 2; % max age
-% mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
-% k = @(a) a; % birth kernel
-% p = @(a) 1+.1*a.^2; % output kernel
-% manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
-% mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
-% D_star = 0.4837;
+% mu = @(a) .1; % mortality rate fcn
+% k = @(a) 2*a.*(A-a); % birth kernel
+% p = @(a) 1; % output kernel
+% manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
+% D_star = 1; % steady-state dilution rate
 % y0 = 1; % initial output
-% x0 = @(a) 8-3*a; % IC
-% sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
-% omega(1) = 48.0574;
-% sigma(2) = -2.3838;
-% omega(2) = 87.8539;
+% c1 = -.066;
+% c2 = -.9;
+% x0 = @(a) c1*a + exp(c2*a); % IC
+% sigma(1) = -4.0335; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+% omega(1) = 55.4606;
+% sigma(2) = -4.9866;
+% omega(2) = 95.7048;
+
+% [KurthSawodny21]
+A = 2; % max age
+mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
+k = @(a) a; % birth kernel
+p = @(a) 1+.1*a.^2; % output kernel
+manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
+mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
+D_star = 0.4837;
+y0 = 1; % initial output
+x0 = @(a) 8-3*a; % IC
+sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+omega(1) = 48.0574;
+sigma(2) = -2.3838;
+omega(2) = 87.8539;
 
 %% stash of unordered parameter sets
 
@@ -119,10 +119,10 @@ discretization.phi = phi;
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
-y_des = 20;
+y_des = 10;
 
 % allowed interval of dilution rate
-D_min = 0.5; % minimum Dilution rate constraint for Safety-Filter
+D_min = 0; % minimum Dilution rate constraint for Safety-Filter
 D_max = 1.5; % maximum Dilution rate constraint for Safety-Filter
 
 switch ctrl_mode
@@ -178,8 +178,8 @@ switch ctrl_mode
 %         u_constraint = @(rho) 0; % ignore constraints on D(t)
         % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
         % u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
-%         u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
-%                         +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
+        u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
+                        +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
         % u_constraint =  @(rho) max(0,-(u_cancel(rho) + u_stabilize(rho))*L_g_h(rho(end))...
         %                         - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min_safe,D_max_safe]
 
@@ -203,7 +203,7 @@ dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
 lambda_0 = zeros(size(A_mat,1),1); % initial conditions
 lambda_0(end) = 1; % DO NOT change IC here, but in x0
 rho_0 = [lambda_0;D_star];
-tspan = [0 20]; % simulation horizon
+tspan = [0 10]; % simulation horizon
 
 [t_sample,rho_sample] = ode45(dynamics,tspan,rho_0); % run simulation
 
@@ -243,7 +243,11 @@ end
 
 %% plot results - transformed coordinates
 if transformed_plot
-    plot_transformed(par_sys,discretization,par_ctrl,results)
+    transformedData = plot_transformed(par_sys,discretization,par_ctrl,results);
+    eta_sample = transformedData.eta_sample;
+    C_Lyap_Sample = transformedData.C_Lyap_Sample;
+    t_sample_ext = transformedData.t_sample_ext;
+    psi_sample_ext = transformedData.psi_sample_ext;
 end
 %% functions
 

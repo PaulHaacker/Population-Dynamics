@@ -1,4 +1,4 @@
-function plot_transformed(par_sys,discretization,par_ctrl,results)
+function output = plot_transformed(par_sys,discretization,par_ctrl,results)
 %plot_std
 
 %% extract input parameters:
@@ -38,7 +38,7 @@ u_ctrl_sample = results.u_ctrl_sample;
 y_sample = results.y_sample;
 D_sample = results.D_sample;
 
-%% debug plot
+%% finc transformed data
 % notice that the transformation includes the desired equilibrium profile,
 % so find the desired equilibrium boundary value from y_des: 
 f_star_0 = y_des/integral(@(a) p(a).*phi{1}(a),0,A);
@@ -96,6 +96,7 @@ C_Lyap_Sample = .5*eta_sample.^2+.5*delta_sample.^2+.5*par_M_hat*G_Lyap_Sample'.
 % % (quasistatic) active filter set.
 % eta_ASF_0 = (c+1-k_safety)/c*D_sample - (c+1)*D_star/c;
 
+%% plot transformed data
 % plotting
 figure('units','normalized','outerposition',[0 0 1 1])
 tiles_handle = tiledlayout(2,2);
@@ -174,6 +175,41 @@ plot(t_sample,C_Lyap_Sample)
 title('Lyapunov Functional $\tilde C(\eta(t),\delta(t),\psi_t)$')
 xlabel('time $t$')
 grid on
+
+% OUTPUT - data
+
+output.eta_sample = eta_sample;
+output.C_Lyap_Sample = C_Lyap_Sample;
+output.t_sample_ext = t_sample_ext;
+output.psi_sample_ext = psi_sample_ext;
+
+%% quick and dirty: plot of local simultaneous stability and safety
+% figure
+% hold on
+% c = par_ctrl.c;
+% k_safety = par_ctrl.k_safety;
+% 
+% % plot
+% traj_plot = plot(D_sample,eta_sample);
+% setpoint_pl = plot(D_star, 0, 'k.','MarkerSize', 20);
+% D_lim = xlim;
+% eta_ASF_0 = (c+1-k_safety)/c*D_lim - (c+1)*D_star/c;
+% plot(D_lim,eta_ASF_0,'r','HandleVisibility','off')
+% help1 = ylim;
+% area_plot = area(D_lim,eta_ASF_0,help1(1),'FaceColor','#ffcccb');
+% area_plot.EdgeColor = 'none';
+% area_plot.FaceAlpha = .5;
+% legend('trajectory $(D,\eta)(t)$',...
+%     'setpoint $(D,\eta,\psi) = (D^\star,0,0)$',...
+%     'quasistatic active safety filter set $\mathcal{X}_{\mathrm{ASF},\psi = 0}$',...
+%     'Location', 'best')
+% uistack(traj_plot,'top')
+% uistack(setpoint_pl,'top')
+% title('phase portrait projected to $D$-$\eta$ plane')
+% xlabel('Dilution rate $D$')
+% ylabel('1-dim. state $\eta$')
+% grid on
+
 end
 
 function val = eval_phi(phi,a)
