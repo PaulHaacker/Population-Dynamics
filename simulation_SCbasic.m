@@ -166,7 +166,7 @@ y_des = 12;
 D_des = gamma - y_des*b_star/p_star;
 
 D_ctrl = @(lambda) D_des + log(C_mat*lambda/y_des);
-% D_ctrl = @(lambda) gamma + (C_mat*lambda-y_des)/y_des;
+% D_ctrl = @(lambda) D_des + (C_mat*lambda-y_des)/y_des;
 
 dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda) ...
             -eye(size(A_mat))*(phi_3'*lambda))*lambda;
@@ -203,7 +203,7 @@ grid on
 
 nexttile
 hold on
-plot(t_sample,ones(size(D_sample))*gamma,'--k','Linewidth',1.5)
+plot(t_sample,ones(size(D_sample))*D_des,'--k','Linewidth',1.5)
 plot(t_sample,D_sample)
 title('control input $D(t)$')
 legend('steady state input $D^\ast$','input $D(t)$')
@@ -256,7 +256,7 @@ grid on
 
 ax2 = subplot(2,6,4:6);
 hold on
-plot(t_sample,ones(size(D_sample))*gamma,'--k','Linewidth',1.5)
+plot(t_sample,ones(size(D_sample))*D_des,'--k','Linewidth',1.5)
 plot(t_sample,D_sample)
 title('control input $D(t)$')
 legend('steady state input $D^\ast$','input $D(t)$')
