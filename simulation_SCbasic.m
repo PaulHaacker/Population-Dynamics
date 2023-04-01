@@ -11,9 +11,9 @@ clear
 % mu = @(a) .1; % mortality rate fcn
 % k = @(a) 2*a.*(A-a); % birth kernel
 % p = 1; % output kernel
-% b = @(a) 1; % self-competition kernel
+% b = @(a) .1; % self-competition kernel
 % manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
-% D_star = 1; % steady-state dilution rate
+% gamma = 1; % generalized steady-state dilution rate
 % y0 = 1; % initial output
 % c1 = -.066;
 % c2 = -.9;
@@ -28,10 +28,10 @@ A = 2; % max age
 mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
 k = @(a) a; % birth kernel
 p = @(a) 1+.1*a.^2; % output kernel
-b = @(a) 1; % self-competition kernel
+b = @(a) .1; % self-competition kernel
 manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
 mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
-D_star = 0.4837;
+gamma = 0.4837; % generalized s.-s. Dilution Rate
 y0 = 1; % initial output
 x0 = @(a) (8 - 3*a); % IC
 sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
@@ -78,7 +78,8 @@ parameter.mu = mu; % mortality rate - function
 parameter.mu_int = mu_int; % mortality rate integral - function
 parameter.k = k; % birth kernel - function handle
 parameter.p = p; % output kernel - double
-parameter.D_star = D_star; % steady-state dilution rate - double
+parameter.gamma = gamma; % steady-state dilution rate - double
+parameter.b = b; % SelfCompetition kernel - function handle
 
 % parameters for IC
 parameter.x0 = x0; % function handle
@@ -90,15 +91,16 @@ parameter.omega(1) = omega(1);
 parameter.sigma(2) = sigma(2);
 parameter.omega(2) = omega(2);
 
-[A_mat, C_mat, phi] = getDiscretization(parameter);
+[A_mat, C_mat, phi, phi_3] = getDiscretizationSC(parameter);
 
 %% simulate linear system - Steady State Input
 % here, with steady state input u(t) == D_star
 % denote the simulation state by lambda
 
-D_ctrl = @(t,lambda) D_star*1.5;
+D_ctrl = @(t,lambda) 0*gamma/4;
 
-dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
+dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda) ...
+            -eye(size(A_mat))*(phi_3'*lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
@@ -160,9 +162,10 @@ axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
 y_des = 12;
 
 % D_ctrl = @(lambda) D_star + log(C_mat*lambda/y_des);
-D_ctrl = @(lambda) D_star + (C_mat*lambda-y_des)/y_des;
+D_ctrl = @(lambda) gamma + (C_mat*lambda-y_des)/y_des;
 
-dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(lambda))*lambda;
+dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda) ...
+            -eye(size(A_mat))*(phi_3'*lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
@@ -198,7 +201,7 @@ grid on
 
 nexttile
 hold on
-plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+plot(t_sample,ones(size(D_sample))*gamma,'--k','Linewidth',1.5)
 plot(t_sample,D_sample)
 title('control input $D(t)$')
 legend('steady state input $D^\ast$','input $D(t)$')
@@ -251,7 +254,7 @@ grid on
 
 ax2 = subplot(2,6,4:6);
 hold on
-plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+plot(t_sample,ones(size(D_sample))*gamma,'--k','Linewidth',1.5)
 plot(t_sample,D_sample)
 title('control input $D(t)$')
 legend('steady state input $D^\ast$','input $D(t)$')
