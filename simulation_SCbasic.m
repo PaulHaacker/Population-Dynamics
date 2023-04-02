@@ -162,18 +162,21 @@ axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 
-y_des = 12;
-D_des = gamma - y_des*b_star/p_star;
+y_des = 12; % desired output setpoint
+D_des = gamma - y_des*b_star/p_star; % adequate s.s. diluton rate
 
-D_ctrl = @(lambda) D_des + log(C_mat*lambda/y_des);
+k_nom = b_star;
+D_ctrl = @(lambda) D_des + k_nom*log(C_mat*lambda/y_des);
 % D_ctrl = @(lambda) D_des + (C_mat*lambda-y_des)/y_des;
 
-dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda) ...
+dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(lambda) ...
             -eye(size(A_mat))*(phi_3'*lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
-tspan = [0 6];
+tspan = [0 30];
+
+[t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);
 
 y_sample = C_mat*lambda_sample';
 
