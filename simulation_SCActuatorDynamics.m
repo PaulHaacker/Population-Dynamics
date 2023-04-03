@@ -1,11 +1,12 @@
 close all
 clear
-%% Population Dynamics with Actuator Dynamics
+%% Population Dynamics with Actuator Dynamics and Self-Competition (SC)
 % this script extends the Population Dynamics system with integrator
 % dynamics for the dilution rate D(t)
 %       \dot D(t) = u(t),
 % where u(t) is the new input. Simulate the new dynamics with the
-% backstepping-based controller.
+% backstepping-based controller. Also consider Self-Competition terms in
+% the controller.
 
 %% booleans for plots
 debug_plot = false; % plot for debug
@@ -13,7 +14,7 @@ standard_plot = true; % standard plot
 transformed_plot = true; % plot of transformed coordinates
 
 %% switch for control
-ctrl_mode = 'Karafyllis';'Backstepping';  % options: 'Backstepping', 'Karafyllis'
+ctrl_mode = 'Backstepping';'Karafyllis';  % options: 'Backstepping', 'Karafyllis'
 
 %% ------ parameters
 
@@ -21,9 +22,10 @@ ctrl_mode = 'Karafyllis';'Backstepping';  % options: 'Backstepping', 'Karafyllis
 % A = 2; % max age
 % mu = @(a) .1; % mortality rate fcn
 % k = @(a) 2*a.*(A-a); % birth kernel
-% p = @(a) 1; % output kernel
+% p = 1; % output kernel
+% b = @(a) .1; % self-competition kernel
 % manuallyProvideMuINT = false; % boolean, that switches integral of mu on or off.
-% D_star = 1; % steady-state dilution rate
+% gamma = 1; % generalized steady-state dilution rate
 % y0 = 1; % initial output
 % c1 = -.066;
 % c2 = -.9;
@@ -38,11 +40,12 @@ A = 2; % max age
 mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
 k = @(a) a; % birth kernel
 p = @(a) 1+.1*a.^2; % output kernel
+b = @(a) .01; % self-competition kernel
 manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
 mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
-D_star = 0.4837;
+gamma = 0.4837; % generalized s.-s. Dilution Rate
 y0 = 1; % initial output
-x0 = @(a) 8-3*a; % IC
+x0 = @(a) (8 - 3*a); % IC
 sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
 omega(1) = 48.0574;
 sigma(2) = -2.3838;
@@ -92,10 +95,11 @@ par_sys.A = A; % max age - double
 par_sys.mu = mu; % mortality rate - function
 par_sys.mu_int = mu_int; % mortality rate integral - function
 par_sys.k = k; % birth kernel - function handle
-par_sys.p = p; % output kernel - function handle
-par_sys.D_star = D_star; % steady-state dilution rate - double
+par_sys.p = p; % output kernel - double
+par_sys.gamma = gamma; % steady-state dilution rate - double
+par_sys.b = b; % SelfCompetition kernel - function handle
 
-% parameters for IC - paper [Schmidt17]
+% parameters for IC
 par_sys.x0 = x0; % function handle
 
 % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
@@ -105,7 +109,10 @@ par_sys.omega(1) = omega(1);
 par_sys.sigma(2) = sigma(2);
 par_sys.omega(2) = omega(2);
 
-[A_mat, C_mat, phi] = getDiscretization(par_sys);
+[A_mat, C_mat, phi, phi_3, outPar] = getDiscretizationSC(par_sys);
+
+b_star = outPar.b_star;
+p_star = outPar.p_star;
 
 discretization.A_mat = A_mat;
 discretization.C_mat = C_mat;
@@ -120,6 +127,8 @@ discretization.phi = phi;
 % equilibrium profile x^\ast(a), or better its family parameter.
 % y_des = 1.5;
 y_des = 10;
+D_des = gamma - y_des*b_star/p_star; % adequate s.s. diluton rate
+par_sys.D_star = D_des; % for plotting
 
 % allowed interval of dilution rate
 D_min = 0; % minimum Dilution rate constraint for Safety-Filter
@@ -135,12 +144,12 @@ switch ctrl_mode
         D_min_TC = D_min; % minimum Dilution rate constraint for TC
         D_max_TC = D_max; % maximum Dilution rate constraint for TC
         A_TC = D_max_TC - D_min_TC; % TC parameter
-        B_TC = (D_max_TC - D_star)/(D_star - D_min_TC); % TC parameter
+        B_TC = (D_max_TC - D_des)/(D_des - D_min_TC); % TC parameter
 
         zeta_fcn = @(D) log(B_TC*(D -D_min_TC)/(D_max_TC - D));
         exp_zeta = @(D) exp(zeta_fcn(D));
 
-        if D_star < D_min_TC || D_star > D_max_TC
+        if D_des < D_min_TC || D_des > D_max_TC
             error('equilibrium dilution not within constraints')
         end
 
@@ -161,25 +170,25 @@ switch ctrl_mode
             int_par(ii) = integral(@(a)(p_prime(a)-p(a).*mu(a)).*phi{ii}(a),0,A);
         end
 
-        if D_star < D_min_safe || D_star > D_max_safe
+        if D_des < D_min_safe || D_des > D_max_safe
             error('equilibrium dilution not within constraints')
         end
 
         % --- define controller - backstepping type
 
-        u_cancel = @(rho) -rho(end)-1/(C_mat*rho(1:end-1))...
-                    *(p(A)*eval_phi(phi,A)-p(0)*eval_phi(phi,0)-int_par)'*rho(1:end-1); % cancelling terms - exact cancellation
-        % u_cancel = @(rho) -rho(end)+D_star; % cancelling terms - super late botching (seems to work)
+%         u_cancel = @(rho) -rho(end)-1/(C_mat*rho(1:end-1))...
+%                     *(p(A)*eval_phi(phi,A)-p(0)*eval_phi(phi,0)-int_par)'*rho(1:end-1); % cancelling terms - exact cancellation
+        u_cancel = @(rho) -rho(end)+D_des; % cancelling terms - super late botching (seems to work)
         % u_cancel = @(rho) 0; % cancelling terms - early botching (seems to work)
-        % u_cancel = @(rho) -rho(end)+D_star*y_des/(C_mat*rho(1:end-1)); % cancelling terms - late botching (unstable)
-        u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabilizing terms
+        % u_cancel = @(rho) -rho(end)+D_des*y_des/(C_mat*rho(1:end-1)); % cancelling terms - late botching (unstable)
+        u_stabilize = @(rho) -c*(rho(end)-D_des-log(C_mat*rho(1:end-1)/y_des)); % stabilizing terms
 
         % --- safety override
-%         u_constraint = @(rho) 0; % ignore constraints on D(t)
-        % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
-        % u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
-        u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
-                        +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
+        u_constraint = @(rho) 0; % ignore constraints on D(t)
+        % u_constraint =  @(rho) -log(rho(end)/D_des); % logarithmic penalty of D(t)->0
+        % u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_des); % linear penalty of D(t)->0
+%         u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
+%                         +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
         % u_constraint =  @(rho) max(0,-(u_cancel(rho) + u_stabilize(rho))*L_g_h(rho(end))...
         %                         - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min_safe,D_max_safe]
 
@@ -197,12 +206,15 @@ par_ctrl.y_des = y_des;
 par_ctrl.ctrl_mode = ctrl_mode;
 
 %% simulate system
-dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
-                      u_ctrl(rho)];
+% dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
+%                       u_ctrl(rho)];
 
+dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end) ...
+            -eye(size(A_mat))*(rho(1:end-1)'*rho(1:end-1)))*rho(1:end-1);
+            u_ctrl(rho)];
 lambda_0 = zeros(size(A_mat,1),1); % initial conditions
 lambda_0(end) = 1; % DO NOT change IC here, but in x0
-rho_0 = [lambda_0;D_star];
+rho_0 = [lambda_0;D_des];
 tspan = [0 10]; % simulation horizon
 
 [t_sample,rho_sample] = ode45(dynamics,tspan,rho_0); % run simulation
