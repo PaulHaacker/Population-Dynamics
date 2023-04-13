@@ -3,7 +3,7 @@ function output = plot_transformed(par_sys,discretization,par_ctrl,results)
 
 %% extract input parameters:
 
-%par_sys
+% par_sys
 A = par_sys.A; % max age - double
 mu = par_sys.mu; % constant mortality rate - double
 mu_int = par_sys.mu_int; % mortality rate integral - function
@@ -38,7 +38,7 @@ u_ctrl_sample = results.u_ctrl_sample;
 y_sample = results.y_sample;
 D_sample = results.D_sample;
 
-%% finc transformed data
+%% find transformed data
 % notice that the transformation includes the desired equilibrium profile,
 % so find the desired equilibrium boundary value from y_des: 
 f_star_0 = y_des/integral(@(a) p(a).*phi{1}(a),0,A);

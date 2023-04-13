@@ -159,7 +159,7 @@ switch ctrl_mode
     case 'Backstepping'
         % --- Backstepping Controller
         % controller parameters
-        c = 2; % control gain c > 0
+        c = 2;.01; % control gain c > 0
         k_safety = 1; % 2*(c+1); % safety gain "rate of allowed safety dissipation"
         D_min_safe = D_min; % minimum Dilution rate constraint for Safety-Filter
         D_max_safe = D_max; % maximum Dilution rate constraint for Safety-Filter
@@ -215,7 +215,7 @@ dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end) ...
 lambda_0 = zeros(size(A_mat,1),1); % initial conditions
 lambda_0(end) = 1; % DO NOT change IC here, but in x0
 rho_0 = [lambda_0;D_des];
-tspan = [0 10]; % simulation horizon
+tspan = [0 20]; % simulation horizon
 
 [t_sample,rho_sample] = ode45(dynamics,tspan,rho_0); % run simulation
 
