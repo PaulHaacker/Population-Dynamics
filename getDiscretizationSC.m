@@ -1,4 +1,4 @@
-function [A_mat, C_mat, phi, phi_3, outPar] = getDiscretizationSC(parameter)
+function [A_mat, C_mat, phi, phi_3, outPar] = getDiscretizationSC(par_sys)
 %% finding the matrices for the Galerkin-based simulation
 
 % choose the basis phi(a) = [zero eigenfunction; two first eigenfunction
@@ -7,23 +7,23 @@ function [A_mat, C_mat, phi, phi_3, outPar] = getDiscretizationSC(parameter)
 
 %% extract input parameters:
 
-A = parameter.A; % max age - double
-mu = parameter.mu; % constant mortality rate - double
-mu_int = parameter.mu_int; % mortality rate integral - function
-k = parameter.k; % birth kernel - function handle
-p = parameter.p; % output kernel - function handle
-gamma = parameter.gamma; % steady-state dilution rate - double
-b = parameter.b; % SelfCompetitionKernel - fcn handle
+A = par_sys.A; % max age - double
+mu = par_sys.mu; % constant mortality rate - double
+mu_int = par_sys.mu_int; % mortality rate integral - function
+k = par_sys.k; % birth kernel - function handle
+p = par_sys.p; % output kernel - function handle
+gamma = par_sys.gamma; % steady-state dilution rate - double
+b = par_sys.b; % SelfCompetitionKernel - fcn handle
 
 % parameters for IC - paper [Schmidt17]
-x0 = parameter.x0; % function handle
+x0 = par_sys.x0; % function handle
 
 % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
 
-sigma(1) = parameter.sigma(1);
-omega(1) = parameter.omega(1);
-sigma(2) = parameter.sigma(2);
-omega(2) = parameter.omega(2);
+sigma(1) = par_sys.sigma(1);
+omega(1) = par_sys.omega(1);
+sigma(2) = par_sys.sigma(2);
+omega(2) = par_sys.omega(2);
 
 N_EV = length(sigma); % number of nonzero eigenvalues considered
 

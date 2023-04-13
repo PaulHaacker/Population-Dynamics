@@ -33,7 +33,7 @@ manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
 mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
 gamma = 0.4837; % generalized s.-s. Dilution Rate
 y0 = 1; % initial output
-x0 = @(a) .05*(8 - 3*a); % IC
+x0 = @(a) (8 - 3*a); % IC
 sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
 omega(1) = 48.0574;
 sigma(2) = -2.3838;
@@ -73,28 +73,33 @@ end
 
 %% get discretization
 
-parameter.A = A; % max age - double
-parameter.mu = mu; % mortality rate - function
-parameter.mu_int = mu_int; % mortality rate integral - function
-parameter.k = k; % birth kernel - function handle
-parameter.p = p; % output kernel - double
-parameter.gamma = gamma; % steady-state dilution rate - double
-parameter.b = b; % SelfCompetition kernel - function handle
+par_sys.A = A; % max age - double
+par_sys.mu = mu; % mortality rate - function
+par_sys.mu_int = mu_int; % mortality rate integral - function
+par_sys.k = k; % birth kernel - function handle
+par_sys.p = p; % output kernel - double
+par_sys.gamma = gamma; % steady-state dilution rate - double
+par_sys.b = b; % SelfCompetition kernel - function handle
 
 % parameters for IC
-parameter.x0 = x0; % function handle
+par_sys.x0 = x0; % function handle
 
 % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
 
-parameter.sigma(1) = sigma(1);
-parameter.omega(1) = omega(1);
-parameter.sigma(2) = sigma(2);
-parameter.omega(2) = omega(2);
+par_sys.sigma(1) = sigma(1);
+par_sys.omega(1) = omega(1);
+par_sys.sigma(2) = sigma(2);
+par_sys.omega(2) = omega(2);
 
-[A_mat, C_mat, phi, phi_3, outPar] = getDiscretizationSC(parameter);
+[A_mat, C_mat, phi, phi_3, outPar] = getDiscretizationSC(par_sys);
 
 b_star = outPar.b_star;
 p_star = outPar.p_star;
+
+discretization.A_mat = A_mat;
+discretization.C_mat = C_mat;
+discretization.phi_3 = phi_3;
+discretization.phi = phi;
 
 %% simulate linear system - Steady State Input
 % here, with steady state input u(t) == D_star
@@ -154,15 +159,9 @@ p_star = outPar.p_star;
 % 
 % axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
 
-%% simulate linear system - controller stabilizing setpoint
-% here, with controller u(t) == D_star + ln(y(t)/y_des)
-% notice that y(t) = C*lambda(t)
-% denote the simulation state by lambda
+%% define controller stabilizing setpoint
 
-% choose desired setpoint for output - equivalent to choosing a desired
-% equilibrium profile x^\ast(a), or better its family parameter.
-
-y_des = 1; % desired output setpoint
+y_des = 12; % desired output setpoint
 D_des = gamma - y_des*b_star/p_star; % adequate s.s. diluton rate
 
 k_nom = b_star;
@@ -170,6 +169,20 @@ D_ctrl = @(lambda) D_des; % mess around here
 % D_ctrl = @(lambda) D_des; % pure FF
 % D_ctrl = @(lambda) D_des + k_nom*log(C_mat*lambda/y_des); % logarithmic P-control
 % D_ctrl = @(lambda) D_des + (C_mat*lambda-y_des)/y_des; % linear P-control
+
+par_ctrl.D_ctrl = D_ctrl;
+% D_min = par_ctrl.D_min;
+% D_max = par_ctrl.D_max;
+par_ctrl.y_des = y_des;
+par_ctrl.D_des = D_des;
+
+%% simulate linear system 
+% here, with controller u(t) == D_star + ln(y(t)/y_des)
+% notice that y(t) = C*lambda(t)
+% denote the simulation state by lambda
+
+% choose desired setpoint for output - equivalent to choosing a desired
+% equilibrium profile x^\ast(a), or better its family parameter.
 
 dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(lambda) ...
             -eye(size(A_mat))*(phi_3'*lambda))*lambda;
@@ -186,6 +199,12 @@ D_sample = zeros(size(t_sample));
 for kk = 1:size(lambda_sample,1)
     D_sample(kk) = D_ctrl(lambda_sample(kk,:)');
 end
+
+%results
+results.t_sample = t_sample;
+results.lambda_sample = lambda_sample;
+results.y_sample = y_sample;
+results.D_sample = D_sample;
 
 %% plot results - P-controller stabilizing setpoint
 % figure
@@ -295,6 +314,12 @@ xlabel('age $a$')
 ylabel('time $t$')
 title('population density $f(t,a)$')
 
+%% plot of transformed variables
+transformedData = plot_SCtransformed(par_sys,discretization,par_ctrl,results);
+eta_sample = transformedData.eta_sample;
+C_Lyap_Sample = transformedData.C_Lyap_Sample;
+t_sample_ext = transformedData.t_sample_ext;
+psi_sample_ext = transformedData.psi_sample_ext;
 
 %% functions
 
