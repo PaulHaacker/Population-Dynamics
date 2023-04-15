@@ -117,7 +117,7 @@ end
 
 % Lyapunov Functional
 % par_sigma = .05; % suff small parameter
-par_b_1 = b_star*exp(2*par_sigma*A)/par_sigma; % suff large parameter
+par_b_1 = 10*b_star*exp(2*par_sigma*A)/par_sigma; % suff large parameter
 G_Lyap_Sample = zeros(size(t_sample)); % Lyap Functional G wrt psi
 g_1_Sample = zeros(size(t_sample)); % non-decreasing functional
 g_2_Sample = zeros(size(t_sample)); % non-increasing functional
@@ -134,6 +134,11 @@ V_Lyap_Sample = .5*(1-exp(-eta_sample)).^2+.5*par_b_1*G_Lyap_Sample'.^2;
 
 % % (quasistatic) active filter set.
 % eta_ASF_0 = (c+1-k_safety)/c*D_sample - (c+1)*D_star/c;
+
+%% plotting the lyapunov function of psi over time
+% plot(t_sample,G_Lyap_Sample)
+% hold on
+% plot(t_sample,G_Lyap_Sample(1)*exp(-par_sigma*t_sample))
 
 %% plot transformed data
 % plotting
