@@ -25,6 +25,8 @@ omega(2) = par_sys.omega(2);
 A_mat = discretization.A_mat;
 C_mat = discretization.C_mat;
 phi = discretization.phi;
+b_star = discretization.b_star;
+p_star = discretization.p_star;
 
 %par_ctrl
 D_ctrl = par_ctrl.D_ctrl;
@@ -47,16 +49,20 @@ f_star_0 = y_des/integral(@(a) p(a).*phi{1}(a),0,A); % c = y_des/p_star
 
 % first, find the adjoint eigenfunction (of the zero eigenvalue of the
 % differential age operator) as a lookup table
-integrand_pi = @(s) k(s).*exp(-mu_int(s)-gamma*s);
+k_tilde = @(s) k(s).*exp(-mu_int(s)-gamma*s);
 a_vec_lookup = linspace(0,A,20);
 pi_lookup = zeros(size(a_vec_lookup));
-integral_pi = @(a) integral(integrand_pi,a,A);
+int_k_tilde_lookup = zeros(size(a_vec_lookup));
+int_k_tilde = @(a) integral(k_tilde,a,A);
 for kk = 1:length(a_vec_lookup)
     a_sample = a_vec_lookup(kk);
-    pi_lookup(kk) = exp(mu_int(a_sample)+gamma*a_sample).*integral_pi(a_sample);
+    pi_lookup(kk) = exp(mu_int(a_sample)+gamma*a_sample).*int_k_tilde(a_sample);
+    int_k_tilde_lookup(kk) = int_k_tilde(a_sample);
 end
 
-pi_fcn = @(a) interp1(a_vec_lookup,pi_lookup,a);
+pi_fcn = @(a) interp1(a_vec_lookup,pi_lookup,a); % eigenfunction
+int_k_tilde_fcn = @(a) interp1(a_vec_lookup,int_k_tilde_lookup,a); % for finding par_lambda, par_sigma
+par_r = integral(@(a) k_tilde(a).*a,0,A);
 
 % now find pi_vec
 f_star_fcn = @(a) f_star_0*phi{1}(a); % desired equilibrium profile
@@ -76,9 +82,42 @@ psi_sample_negTime = phi{end}(-t_sample_negTime)./f_star_fcn(-t_sample_negTime)/
 t_sample_ext = [t_sample_negTime, t_sample']; % extended time sample
 psi_sample_ext = [psi_sample_negTime,psi_sample_posTime]; % extended psi sample
 
+% finding par_lambda
+lambda_vec = 0:.05:2;
+lambda_res_vec = zeros(size(lambda_vec)); % residual for finding par_lambda
+
+for kk = 1:length(lambda_vec)
+    lambda_res_vec(kk) = 1 - integral(@(a) abs(k_tilde(a) - par_r*lambda_vec(kk)*int_k_tilde_fcn(a)),0,A);
+end
+
+[max_res_lambda,lambda_indx] = max(lambda_res_vec);
+par_lambda = lambda_vec(lambda_indx);
+
+if par_lambda <= 0 || max_res_lambda <= 0
+    error('Error finding par_lambda.')
+end
+
+% finding par_sigma
+sigma_vec = 0:.01:2;
+sigma_res_vec = zeros(size(sigma_vec)); % residual for finding par_sigma
+
+for kk = 1:length(sigma_vec)
+    sigma_res_vec(kk) = 1 - integral(@(a) abs(k_tilde(a) - par_r*par_lambda*int_k_tilde_fcn(a))...
+        .*exp(sigma_vec(kk)*a),0,A);
+end
+
+sigma_admissable = sigma_vec(sigma_res_vec>0);
+par_sigma = sigma_admissable(end); % assuming sigma_res strictly decreasing in sigma
+
+error_help = 1 - integral(@(a) abs(k_tilde(a) - par_r*par_lambda*int_k_tilde_fcn(a))...
+        .*exp(par_sigma*a),0,A);
+if error_help <= 0
+    error('Error finding par_sigma.')
+end
+
 % Lyapunov Functional
-par_sigma = .1; % suff small parameter
-par_M_hat = 2*exp(2*par_sigma*A)/par_sigma; % suff large parameter
+% par_sigma = .05; % suff small parameter
+par_b_1 = b_star*exp(2*par_sigma*A)/par_sigma; % suff large parameter
 G_Lyap_Sample = zeros(size(t_sample)); % Lyap Functional G wrt psi
 g_1_Sample = zeros(size(t_sample)); % non-decreasing functional
 g_2_Sample = zeros(size(t_sample)); % non-increasing functional
@@ -86,13 +125,12 @@ for kk = length(t_sample_negTime)+1:length(t_sample_ext)
     indx_start = find(t_sample_ext>=t_sample_ext(kk)-A,1);
     psi_stage = psi_sample_ext(indx_start:kk);
     t_sample_stage = t_sample_ext(indx_start:kk);
-%     G_num = max(abs(psi_stage).*exp(par_sigma*(t_sample_stage-t_sample_ext(kk))));
-%     G_den = 1 + min(0,min(psi_stage));
-%     G_Lyap_Sample(kk-length(t_sample_negTime)) = G_num/G_den;
+    G_Lyap_Sample(kk-length(t_sample_negTime)) = ...
+     max(abs(psi_stage).*exp(par_sigma*(t_sample_stage-t_sample_ext(kk))));
     g_1_Sample(kk-length(t_sample_negTime)) = min(psi_stage);
     g_2_Sample(kk-length(t_sample_negTime)) = max(psi_stage);
 end
-% C_Lyap_Sample = .5*eta_sample.^2+.5*delta_sample.^2+.5*par_M_hat*G_Lyap_Sample'.^2;
+V_Lyap_Sample = .5*(1-exp(-eta_sample)).^2+.5*par_b_1*G_Lyap_Sample'.^2;
 
 % % (quasistatic) active filter set.
 % eta_ASF_0 = (c+1-k_safety)/c*D_sample - (c+1)*D_star/c;
@@ -129,29 +167,103 @@ grid on
 nexttile
 hold on
 
-traj_plot = plot(psi_sample_posTime,eta_sample);
+traj_plot = plot(eta_sample,psi_sample_posTime);
 setpoint_pl = plot(0, 0, 'k.','MarkerSize', 20);
 legend('trajectory $(\psi_t,\eta(t))$',...
         'Location', 'best')
 title('phase portrait projected to $\psi$-$\eta$ plane')
-xlabel('internal state $\psi$')
-ylabel('1-dim. state $\eta$')
+ylabel('internal state $\psi$')
+xlabel('1-dim. state $\eta$')
 grid on
 
-% % Lyap functional plot
-% nexttile
-% hold on
-% plot(t_sample,C_Lyap_Sample)
-% title('Lyapunov Functional $\tilde C(\eta(t),\delta(t),\psi_t)$')
-% xlabel('time $t$')
-% grid on
+% Lyap functional plot
+nexttile
+hold on
+plot(t_sample,V_Lyap_Sample)
+plot(t_sample,V_Lyap_Sample(1)*exp(-min(par_sigma,b_star*f_star_0)*t_sample))
+title('Lyapunov Functional $V(\eta(t),\delta(t),\psi_t)$')
+legend('Lyapunov Functional $V(\eta(t),\delta(t),\psi_t)$',...
+        'exponential bound $V_0 e^{-\mu t}$')
+xlabel('time $t$')
+grid on
 
 % OUTPUT - data
 
 output.eta_sample = eta_sample;
-output.C_Lyap_Sample = C_Lyap_Sample;
+output.C_Lyap_Sample = V_Lyap_Sample;
 output.t_sample_ext = t_sample_ext;
 output.psi_sample_ext = psi_sample_ext;
+
+%% plot of new lyap-terms
+
+figure('units','normalized','outerposition',[0 0 1 1])
+tiles_handle = tiledlayout(2,2);
+title(tiles_handle,'transformed states','Interpreter','Latex')
+
+% nexttile
+% hold on
+% plot(t_sample,(1-exp(-eta_sample)))
+
+% with a basis function
+nexttile 
+chebychev = @(t,a) cos(t.*acos(1-a/A)).^2;
+t_vec = 0:.1:20;
+a_vec = 0:.01:A;
+[t_mesh,a_mesh] = meshgrid(t_vec,a_vec);
+basis_fcn = @(t,a) f_star_fcn(a) + (1 - chebychev(t,a)).*exp(1-a/A);
+Z = basis_fcn(t_mesh,a_mesh);
+s1_handle = surf(t_mesh,a_mesh,Z);
+% s1_handle.FaceColor = 'none';
+LessEdgeSurf(s1_handle,20,20)
+s1_handle.EdgeColor = 'none';
+
+% %debug
+% test_vec = 0:.01:1;
+% figure
+% plot(test_vec, cos(2*acos(test_vec)))
+% hold on
+% plot(test_vec, chebychev(2,test_vec*A))
+
+N_t = size(t_mesh,2);
+basisfcn_lyap = zeros(N_t,1);
+
+for kk = 1:N_t
+    basisfcn_lyap(kk) = 1-integral(@(a) pi_fcn(a).*basis_fcn(t_vec(kk),a),0,A)^-1 ...
+    * pi_vec_denominator;
+end
+
+nexttile
+plot(t_vec,basisfcn_lyap)
+
+% another basis function
+nexttile 
+t_vec = 0:.1:20;
+a_vec = 0:.01:A;
+[t_mesh,a_mesh] = meshgrid(t_vec,a_vec);
+basis_fcn = @(t,a) f_star_fcn(a).*(.5+t).^2;
+Z = basis_fcn(t_mesh,a_mesh);
+s1_handle = surf(t_mesh,a_mesh,Z);
+% s1_handle.FaceColor = 'none';
+LessEdgeSurf(s1_handle,20,20)
+s1_handle.EdgeColor = 'none';
+
+% %debug
+% test_vec = 0:.01:1;
+% figure
+% plot(test_vec, cos(2*acos(test_vec)))
+% hold on
+% plot(test_vec, chebychev(2,test_vec*A))
+
+N_t = size(t_mesh,2);
+basisfcn_lyap = zeros(N_t,1);
+
+for kk = 1:N_t
+    basisfcn_lyap(kk) = 1-integral(@(a) pi_fcn(a).*basis_fcn(t_vec(kk),a),0,A)^-1 ...
+    * pi_vec_denominator;
+end
+
+nexttile
+plot(t_vec,basisfcn_lyap)
 
 %% quick and dirty: plot of local simultaneous stability and safety
 % figure

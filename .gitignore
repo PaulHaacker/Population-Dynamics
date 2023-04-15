@@ -1,3 +1,7 @@
 *.png
 *.asv
 *.fig
+*.pdf
+*.eps
+*.afdesign
+*.pps

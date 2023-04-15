@@ -100,6 +100,8 @@ discretization.A_mat = A_mat;
 discretization.C_mat = C_mat;
 discretization.phi_3 = phi_3;
 discretization.phi = phi;
+discretization.b_star = b_star;
+discretization.p_star = p_star;
 
 %% simulate linear system - Steady State Input
 % here, with steady state input u(t) == D_star
@@ -161,7 +163,7 @@ discretization.phi = phi;
 
 %% define controller stabilizing setpoint
 
-y_des = 12; % desired output setpoint
+y_des = 11.7; % desired output setpoint
 D_des = gamma - y_des*b_star/p_star; % adequate s.s. diluton rate
 
 k_nom = b_star;
