@@ -79,8 +79,8 @@ eta_sample = log(pi_vec'*lambda_sample');
 psi_sample_posTime = (eval_phi(phi,0)'*lambda_sample')./(f_star_0*pi_vec'*lambda_sample')-1;
 t_sample_negTime = -2:.01:0;
 psi_sample_negTime = phi{end}(-t_sample_negTime)./f_star_fcn(-t_sample_negTime)/pi_vec(end) -1;
-t_sample_ext = [t_sample_negTime, t_sample']; % extended time sample
-psi_sample_ext = [psi_sample_negTime,psi_sample_posTime]; % extended psi sample
+t_sample_ext = [t_sample_negTime(1:end-1),t_sample']; % extended time sample
+psi_sample_ext = [psi_sample_negTime(1:end-1),psi_sample_posTime]; % extended psi sample
 
 % finding par_lambda
 lambda_vec = 0:.05:2;
@@ -135,7 +135,24 @@ V_Lyap_Sample = .5*(1-exp(-eta_sample)).^2+.5*par_b_1*G_Lyap_Sample'.^2;
 % % (quasistatic) active filter set.
 % eta_ASF_0 = (c+1-k_safety)/c*D_sample - (c+1)*D_star/c;
 
+% find functional v2(psi_t)
+v2_psi_vec = zeros(size(t_sample));
+
+for kk = 1:length(t_sample)
+    a_vec_lookup = t_sample_ext(1:length(t_sample_negTime)+kk-1)...
+                    - t_sample(kk);
+    psi_lookup = psi_sample_ext(1:length(t_sample_negTime)+kk-1);
+    psi_stage = @(a) interp1(a_vec_lookup,psi_lookup,a);
+    v2_psi_vec(kk)=integral(@(a)b(a).*f_star_fcn(a).*psi_stage(-a),0,A);
+end
+
+%% plotting the (evil) functional v2 of psi over time...
+figure
+plot(t_sample,v2_psi_vec)
+grid on
+
 %% plotting the lyapunov function of psi over time
+% figure
 % plot(t_sample,G_Lyap_Sample)
 % hold on
 % plot(t_sample,G_Lyap_Sample(1)*exp(-par_sigma*t_sample))
