@@ -149,6 +149,9 @@ end
 %% plotting the (evil) functional v2 of psi over time...
 figure
 plot(t_sample,v2_psi_vec)
+xlim([0 10])
+xlabel('time $t$')
+ylabel('$v_2(\psi_t)$')
 grid on
 
 %% plotting the lyapunov function of psi over time
@@ -218,9 +221,92 @@ output.psi_sample_ext = psi_sample_ext;
 
 %% plot of new lyap-terms
 
+% figure('units','normalized','outerposition',[0 0 1 1])
+% tiles_handle = tiledlayout(2,2);
+% title(tiles_handle,'intuition of the functional $1-\frac{1}{\Pi(f_\rho)}$','Interpreter','Latex')
+% 
+% % nexttile
+% % hold on
+% % plot(t_sample,(1-exp(-eta_sample)))
+% 
+% % with a basis function
+% nexttile 
+% chebychev = @(t,a) cos(t.*acos(1-a/A)).^2;
+% t_vec = 0:.1:20;
+% a_vec = 0:.01:A;
+% [t_mesh,a_mesh] = meshgrid(t_vec,a_vec);
+% basis_fcn = @(t,a) f_star_fcn(a) + (1 - chebychev(t,a)).*exp(1-a/A);
+% Z = basis_fcn(t_mesh,a_mesh);
+% s1_handle = surf(t_mesh,a_mesh,Z);
+% % s1_handle.FaceColor = 'none';
+% LessEdgeSurf(s1_handle,20,20)
+% s1_handle.EdgeColor = 'none';
+% xlabel('family parameter $\rho$')
+% ylabel('age $a$')
+% zlabel('population density $f_\rho(a)$')
+% 
+% % %debug
+% % test_vec = 0:.01:1;
+% % figure
+% % plot(test_vec, cos(2*acos(test_vec)))
+% % hold on
+% % plot(test_vec, chebychev(2,test_vec*A))
+% 
+% N_t = size(t_mesh,2);
+% basisfcn_lyap = zeros(N_t,1);
+% 
+% for kk = 1:N_t
+%     basisfcn_lyap(kk) = 1-integral(@(a) pi_fcn(a).*basis_fcn(t_vec(kk),a),0,A)^-1 ...
+%     * pi_vec_denominator;
+% end
+% 
+% nexttile
+% plot(t_vec,basisfcn_lyap)
+% xlabel('family parameter $\rho$')
+% ylabel('functional $1-\frac{1}{\Pi(f_\rho)}$')
+% grid on
+% 
+% % another basis function
+% nexttile 
+% t_vec = 0:.1:20;
+% a_vec = 0:.01:A;
+% [t_mesh,a_mesh] = meshgrid(t_vec,a_vec);
+% basis_fcn = @(t,a) f_star_fcn(a).*(.5+t).^2;
+% Z = basis_fcn(t_mesh,a_mesh);
+% s1_handle = surf(t_mesh,a_mesh,Z);
+% % s1_handle.FaceColor = 'none';
+% LessEdgeSurf(s1_handle,20,20)
+% s1_handle.EdgeColor = 'none';
+% xlabel('family parameter $\rho$')
+% ylabel('age $a$')
+% zlabel('population density $f_\rho(a)$')
+% 
+% % %debug
+% % test_vec = 0:.01:1;
+% % figure
+% % plot(test_vec, cos(2*acos(test_vec)))
+% % hold on
+% % plot(test_vec, chebychev(2,test_vec*A))
+% 
+% N_t = size(t_mesh,2);
+% basisfcn_lyap = zeros(N_t,1);
+% 
+% for kk = 1:N_t
+%     basisfcn_lyap(kk) = 1-integral(@(a) pi_fcn(a).*basis_fcn(t_vec(kk),a),0,A)^-1 ...
+%     * pi_vec_denominator;
+% end
+% 
+% nexttile
+% plot(t_vec,basisfcn_lyap)
+% xlabel('family parameter $\rho$')
+% ylabel('functional $1-\frac{1}{\Pi(f_\rho)}$')
+% grid on
+
+%% plot of transformed states - KRSTIC plot
+
 figure('units','normalized','outerposition',[0 0 1 1])
 tiles_handle = tiledlayout(2,2);
-title(tiles_handle,'transformed states','Interpreter','Latex')
+title(tiles_handle,'functionals $(\zeta,\psi)$','Interpreter','Latex')
 
 % nexttile
 % hold on
@@ -228,16 +314,20 @@ title(tiles_handle,'transformed states','Interpreter','Latex')
 
 % with a basis function
 nexttile 
-chebychev = @(t,a) cos(t.*acos(1-a/A)).^2;
-t_vec = 0:.1:20;
-a_vec = 0:.01:A;
-[t_mesh,a_mesh] = meshgrid(t_vec,a_vec);
-basis_fcn = @(t,a) f_star_fcn(a) + (1 - chebychev(t,a)).*exp(1-a/A);
-Z = basis_fcn(t_mesh,a_mesh);
-s1_handle = surf(t_mesh,a_mesh,Z);
+chebychev = @(rho,a) cos(rho.*acos(a-1));
+rho_par_vec = 0:.01:5; %4:.0001:4.2; %0.85:.0001:1; %
+a_vec = 0:.01:2;
+[rho_par_mesh,a_mesh] = meshgrid(rho_par_vec,a_vec);
+% basis_fcn = @(t,a) f_star_fcn(a) + (1 - chebychev(t,a)).*exp(1-a/A);
+basis_fcn = @(rho,a) chebychev(rho,a).^2;
+Z = basis_fcn(rho_par_mesh,a_mesh);
+s1_handle = surf(rho_par_mesh,a_mesh,Z);
 % s1_handle.FaceColor = 'none';
 LessEdgeSurf(s1_handle,20,20)
 s1_handle.EdgeColor = 'none';
+xlabel('family parameter $\rho$')
+ylabel('age $a$')
+zlabel('population density $f_\rho(a)$')
 
 % %debug
 % test_vec = 0:.01:1;
@@ -246,28 +336,37 @@ s1_handle.EdgeColor = 'none';
 % hold on
 % plot(test_vec, chebychev(2,test_vec*A))
 
-N_t = size(t_mesh,2);
-basisfcn_lyap = zeros(N_t,1);
+N_rho = size(rho_par_mesh,2);
+basisfcn_Pi_c = zeros(N_rho,1);
 
-for kk = 1:N_t
-    basisfcn_lyap(kk) = 1-integral(@(a) pi_fcn(a).*basis_fcn(t_vec(kk),a),0,A)^-1 ...
-    * pi_vec_denominator;
+for kk = 1:N_rho
+    basisfcn_Pi_c(kk) = integral(@(a) pi_fcn(a).*basis_fcn(rho_par_vec(kk),a),0,A) ...
+    / pi_vec_denominator;
 end
 
-nexttile
-plot(t_vec,basisfcn_lyap)
+basisfcn_zeta = 1-basisfcn_Pi_c.^(-1);
 
-% another basis function
-nexttile 
-t_vec = 0:.1:20;
-a_vec = 0:.01:A;
-[t_mesh,a_mesh] = meshgrid(t_vec,a_vec);
-basis_fcn = @(t,a) f_star_fcn(a).*(.5+t).^2;
-Z = basis_fcn(t_mesh,a_mesh);
-s1_handle = surf(t_mesh,a_mesh,Z);
+% plot zeta
+nexttile
+plot(rho_par_vec,basisfcn_zeta)
+xlabel('family parameter $\rho$')
+ylabel('functional $\zeta = 1-\frac{1}{\Pi(f_\rho)}$')
+grid on
+
+% finding psi
+nexttile
+
+basisfcn_Pi_c_fcn = @(rho) interp1(rho_par_vec,basisfcn_Pi_c,rho);
+
+Psi_mesh = basis_fcn(rho_par_mesh,a_mesh)./f_star_fcn(a_mesh)...
+            ./basisfcn_Pi_c_fcn(rho_par_mesh)-1;
+s1_handle = surf(rho_par_mesh,a_mesh,Psi_mesh);
 % s1_handle.FaceColor = 'none';
 LessEdgeSurf(s1_handle,20,20)
 s1_handle.EdgeColor = 'none';
+xlabel('family parameter $\rho$')
+ylabel('age $a$')
+zlabel('functional $\psi = \frac{f_\rho(a)}{f^\ast_c \Pi_c(f_\rho)}-1$')
 
 % %debug
 % test_vec = 0:.01:1;
@@ -276,16 +375,6 @@ s1_handle.EdgeColor = 'none';
 % hold on
 % plot(test_vec, chebychev(2,test_vec*A))
 
-N_t = size(t_mesh,2);
-basisfcn_lyap = zeros(N_t,1);
-
-for kk = 1:N_t
-    basisfcn_lyap(kk) = 1-integral(@(a) pi_fcn(a).*basis_fcn(t_vec(kk),a),0,A)^-1 ...
-    * pi_vec_denominator;
-end
-
-nexttile
-plot(t_vec,basisfcn_lyap)
 
 %% quick and dirty: plot of local simultaneous stability and safety
 % figure
