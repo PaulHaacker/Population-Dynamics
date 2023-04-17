@@ -313,14 +313,16 @@ title(tiles_handle,'functionals $(\zeta,\psi)$','Interpreter','Latex')
 % plot(t_sample,(1-exp(-eta_sample)))
 
 % with a basis function
-nexttile 
-chebychev = @(rho,a) cos(rho.*acos(a-1));
-rho_par_vec = 0:.01:5; %4:.0001:4.2; %0.85:.0001:1; %
+rho_par_vec = 0:.01:10; %4:.0001:4.2; %0.85:.0001:1; %
 a_vec = 0:.01:2;
+chebychev = @(rho,a) cos(rho.*acos(a/a_vec(end)));
 [rho_par_mesh,a_mesh] = meshgrid(rho_par_vec,a_vec);
 % basis_fcn = @(t,a) f_star_fcn(a) + (1 - chebychev(t,a)).*exp(1-a/A);
-basis_fcn = @(rho,a) chebychev(rho,a).^2;
+basis_fcn = @(rho,a) f_star_fcn(a).*(1+chebychev(rho,a));
 Z = basis_fcn(rho_par_mesh,a_mesh);
+
+% plot basis function
+nexttile 
 s1_handle = surf(rho_par_mesh,a_mesh,Z);
 % s1_handle.FaceColor = 'none';
 LessEdgeSurf(s1_handle,20,20)
@@ -346,13 +348,6 @@ end
 
 basisfcn_zeta = 1-basisfcn_Pi_c.^(-1);
 
-% plot zeta
-nexttile
-plot(rho_par_vec,basisfcn_zeta)
-xlabel('family parameter $\rho$')
-ylabel('functional $\zeta = 1-\frac{1}{\Pi(f_\rho)}$')
-grid on
-
 % finding psi
 nexttile
 
@@ -366,8 +361,24 @@ LessEdgeSurf(s1_handle,20,20)
 s1_handle.EdgeColor = 'none';
 xlabel('family parameter $\rho$')
 ylabel('age $a$')
-zlabel('functional $\psi = \frac{f_\rho(a)}{f^\ast_c \Pi_c(f_\rho)}-1$')
+zlabel('functional $\psi = \frac{f_\rho(a)}{f^\ast_c(a) \Pi_c(f_\rho)}-1$')
 
+% plot zeta-Pi
+nexttile
+Pi_vec = .01:.02:5;
+zeta_vec = 1-1./Pi_vec;
+plot(Pi_vec,zeta_vec)
+xlabel('functional $\Pi$')
+ylabel('functional $\zeta = 1-\Pi^{-1}$')
+ylim([-10,2])
+grid on
+
+% plot zeta-rho
+nexttile
+plot(rho_par_vec,basisfcn_zeta)
+xlabel('family parameter $\rho$')
+ylabel('functional $\zeta = 1-\Pi(f_\rho)^{-1}$')
+grid on
 % %debug
 % test_vec = 0:.01:1;
 % figure
