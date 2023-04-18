@@ -118,14 +118,19 @@ discretization.phi = phi;
 
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
+% edit: now also works with trajectories
 
+% % setpoint
 % y_des = @(t) 10*ones(size(t));
 % y_des_d = @(t) 0*ones(size(t));
 % y_des_d2 = @(t) 0*ones(size(t));
 
-y_des = @(t) 10 + sin(t);
-y_des_d = @(t) cos(t);
-y_des_d2 = @(t) - sin(t);
+% time signal
+omega_sig = 1;
+y_hat_sig = 1;
+y_des = @(t) 10 + y_hat_sig*sin(omega_sig*t);
+y_des_d = @(t) y_hat_sig*omega_sig*cos(omega_sig*t);
+y_des_d2 = @(t) - y_hat_sig*omega_sig^2*sin(omega_sig*t);
 
 % allowed interval of dilution rate
 D_min = 0; % minimum Dilution rate constraint for Safety-Filter
@@ -152,6 +157,10 @@ switch ctrl_mode
 
         u_ctrl = @(t,rho) u_ctrl_TC_fcn(rho, zeta_fcn, exp_zeta, A_TC, ...
                                 B_TC, k_TC, sigma_TC, Q_TC, y_des, C_mat);
+                            
+        % dirty: empty paramteters
+        k_nom = 0;
+        par_ctrl.k_nom = k_nom;
 
     case 'Backstepping'
         % --- Backstepping Controller
@@ -190,25 +199,27 @@ switch ctrl_mode
                 +y_des_d(t)./y_des(t)); % stabilizing terms - tracking
         
         % --- safety override
-        u_constraint = @(t,rho) 0; % ignore constraints on D(t)
+%         u_constraint = @(t,rho) 0; % ignore constraints on D(t)
         % u_constraint =  @(t,rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
         % u_constraint =  @(t,rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
 %         u_constraint =  @(t,rho) max(0,- u_cancel(t,rho) - u_stabilize(t,rho) ...
 %                         +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
-        % u_constraint =  @(t,rho) max(0,-(u_cancel(t,rho) + u_stabilize(t,rho))*L_g_h(rho(end))...
-        %                         - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min_safe,D_max_safe]
+        u_constraint =  @(t,rho) max(0,-(u_cancel(t,rho) + u_stabilize(t,rho))*L_g_h(rho(end))...
+                                - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min_safe,D_max_safe]
 
         u_ctrl = @(t,rho) u_cancel(t,rho) + u_stabilize(t,rho) + u_constraint(t,rho);
         
         % additional plot parameters
         par_ctrl.c = c;
         par_ctrl.k_safety = k_safety;
+        par_ctrl.k_nom = k_nom;
 end
 
 par_ctrl.u_ctrl = u_ctrl;
 par_ctrl.D_min = D_min;
 par_ctrl.D_max = D_max;
 par_ctrl.y_des = y_des;
+par_ctrl.y_des_d = y_des_d;
 par_ctrl.ctrl_mode = ctrl_mode;
 
 %% simulate system

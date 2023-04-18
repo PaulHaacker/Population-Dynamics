@@ -28,6 +28,8 @@ u_ctrl = par_ctrl.u_ctrl;
 D_min = par_ctrl.D_min;
 D_max = par_ctrl.D_max;
 y_des = par_ctrl.y_des;
+y_des_d = par_ctrl.y_des_d;
+k_nom = par_ctrl.k_nom;
 ctrl_mode = par_ctrl.ctrl_mode;
 
 %results
@@ -42,7 +44,7 @@ D_sample = results.D_sample;
 % notice that the transformation includes the desired equilibrium profile,
 % so find the desired equilibrium boundary value from y_des: 
 p_star = integral(@(a) p(a).*phi{1}(a),0,A);
-f_star_0 = y_des/integral(@(a) p(a).*phi{1}(a),0,A);
+% f_star_0 = y_des/integral(@(a) p(a).*phi{1}(a),0,A);
 
 % first, find the adjoint eigenfunction (of the zero eigenvalue of the
 % differential age operator) as a lookup table
@@ -58,9 +60,10 @@ end
 pi_fcn = @(a) interp1(a_vec_lookup,pi_lookup,a);
 
 % now find pi_vec
-f_star_fcn = @(a) f_star_0*phi{1}(a); % desired equilibrium profile
+% f_star_fcn = @(a) f_star_0*phi{1}(a); % desired equilibrium profile
+gamma_fcn = @(a) phi{1}(a)/p_star; % quasi-static equilibrium profile
 
-pi_vec_denominator = integral(@(a)pi_fcn(a).*f_star_fcn(a),0,A);
+pi_vec_denominator = integral(@(a)pi_fcn(a).*gamma_fcn(a),0,A);
 
 pi_vec = zeros(size(phi));
 for kk = 1:length(pi_vec)
@@ -68,15 +71,16 @@ for kk = 1:length(pi_vec)
 end
 
 % extract transformed states
-eta_sample = log(pi_vec'*lambda_sample');
-psi_sample_posTime = (eval_phi(phi,0)'*lambda_sample')./(f_star_0*pi_vec'*lambda_sample')-1;
+eta_sample = log(pi_vec'*lambda_sample'./y_des(t_sample)');
+psi_sample_posTime = (eval_phi(phi,0)'*lambda_sample')./(pi_vec'*lambda_sample'/p_star)-1;
 t_sample_negTime = -2:.01:0;
-psi_sample_negTime = phi{end}(-t_sample_negTime)./f_star_fcn(-t_sample_negTime)/pi_vec(end) -1;
+psi_sample_negTime = phi{end}(-t_sample_negTime)./gamma_fcn(-t_sample_negTime)/pi_vec(end) -1;
 
 % Lyapunov Functional
 par_sigma = .1; % suff small parameter
 par_M_hat = 2*exp(2*par_sigma*A)/par_sigma; % suff large parameter
-delta_sample = D_sample' - D_star - log(y_sample/y_des); % dilution error
+delta_sample = D_sample' - D_star - k_nom* log(y_sample./y_des(t_sample)')...
+                + y_des_d(t_sample)'/y_des(t_sample)'; % dilution error
 G_Lyap_Sample = zeros(size(t_sample)); % Lyap Functional G wrt psi
 t_sample_ext = [t_sample_negTime, t_sample']; % extended time sample
 psi_sample_ext = [psi_sample_negTime,psi_sample_posTime]; % extended psi sample
