@@ -50,7 +50,7 @@ grid on
 
 output_ax_handle = nexttile;
 hold on
-plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
+plot(t_sample,y_des(t_sample),'--k','Linewidth',1.5)
 plot(t_sample,y_sample)
 title('output $y(t)$')
 legend('desired output $y_\mathrm{des}$','output $y(t)$','Location', 'best')

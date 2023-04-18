@@ -154,8 +154,8 @@ y_sample = C_mat*lambda_sample';
 % edit: also works for trajectories!
 
 % static setpoint:
-y_des = @(t) 12;
-y_des_d = @(t) 0;
+y_des = @(t) 12*ones(size(t));
+y_des_d = @(t) 0*ones(size(t));
 
 % % time signal:
 % y_des = @(t) 12+sin(t);

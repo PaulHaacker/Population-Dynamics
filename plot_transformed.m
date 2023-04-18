@@ -41,6 +41,7 @@ D_sample = results.D_sample;
 %% find transformed data
 % notice that the transformation includes the desired equilibrium profile,
 % so find the desired equilibrium boundary value from y_des: 
+p_star = integral(@(a) p(a).*phi{1}(a),0,A);
 f_star_0 = y_des/integral(@(a) p(a).*phi{1}(a),0,A);
 
 % first, find the adjoint eigenfunction (of the zero eigenvalue of the

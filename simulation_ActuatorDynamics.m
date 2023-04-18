@@ -10,10 +10,10 @@ clear
 %% booleans for plots
 debug_plot = false; % plot for debug
 standard_plot = true; % standard plot
-transformed_plot = true; % plot of transformed coordinates
+transformed_plot = false; % plot of transformed coordinates
 
 %% switch for control
-ctrl_mode = 'Karafyllis';'Backstepping';  % options: 'Backstepping', 'Karafyllis'
+ctrl_mode = 'Backstepping';'Karafyllis';  % options: 'Backstepping', 'Karafyllis'
 
 %% ------ parameters
 
@@ -118,8 +118,14 @@ discretization.phi = phi;
 
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
-% y_des = 1.5;
-y_des = 10;
+
+% y_des = @(t) 10*ones(size(t));
+% y_des_d = @(t) 0*ones(size(t));
+% y_des_d2 = @(t) 0*ones(size(t));
+
+y_des = @(t) 10 + sin(t);
+y_des_d = @(t) cos(t);
+y_des_d2 = @(t) - sin(t);
 
 % allowed interval of dilution rate
 D_min = 0; % minimum Dilution rate constraint for Safety-Filter
@@ -144,14 +150,15 @@ switch ctrl_mode
             error('equilibrium dilution not within constraints')
         end
 
-        u_ctrl = @(rho) u_ctrl_TC_fcn(rho, zeta_fcn, exp_zeta, A_TC, ...
+        u_ctrl = @(t,rho) u_ctrl_TC_fcn(rho, zeta_fcn, exp_zeta, A_TC, ...
                                 B_TC, k_TC, sigma_TC, Q_TC, y_des, C_mat);
 
     case 'Backstepping'
         % --- Backstepping Controller
         % controller parameters
-        c = 2; % control gain c > 0
+        c = 2; % backstepping control gain c > 0
         k_safety = 1; % 2*(c+1); % safety gain "rate of allowed safety dissipation"
+        k_nom = 1; % nomainal gain
         D_min_safe = D_min; % minimum Dilution rate constraint for Safety-Filter
         D_max_safe = D_max; % maximum Dilution rate constraint for Safety-Filter
         h_fcn = @(D) -(D-D_min_safe).*(D-D_max_safe); % safety function for D_min_safe <= D(t) <= D_max_safe
@@ -167,23 +174,31 @@ switch ctrl_mode
 
         % --- define controller - backstepping type
 
-        u_cancel = @(rho) -rho(end)-1/(C_mat*rho(1:end-1))...
-                    *(p(A)*eval_phi(phi,A)-p(0)*eval_phi(phi,0)-int_par)'*rho(1:end-1); % cancelling terms - exact cancellation
-        % u_cancel = @(rho) -rho(end)+D_star; % cancelling terms - super late botching (seems to work)
-        % u_cancel = @(rho) 0; % cancelling terms - early botching (seems to work)
-        % u_cancel = @(rho) -rho(end)+D_star*y_des/(C_mat*rho(1:end-1)); % cancelling terms - late botching (unstable)
-        u_stabilize = @(rho) -c*(rho(end)-D_star-log(C_mat*rho(1:end-1)/y_des)); % stabilizing terms
-
+%         u_cancel = @(t,rho) -k_nom*rho(end)-k_nom/(C_mat*rho(1:end-1))...
+%                     *(p(A)*eval_phi(phi,A)-p(0)*eval_phi(phi,0)-int_par)'*rho(1:end-1); % cancelling terms - exact cancellation
+%         u_cancel = @(t,rho) k_nom*(-rho(end)+D_star); % cancelling terms - super late botching (proven to work)
+        u_cancel = @(t,rho) k_nom*(-rho(end)+D_star-y_des_d(t)./...
+                   y_des(t)) -y_des_d2(t)./y_des(t) ...
+                   + y_des_d(t).^2./y_des(t).^2; % cancelling terms - tracking        
+        % u_cancel = @(t,rho) 0; % cancelling terms - early botching (seems to work)
+        % u_cancel = @(t,rho) -rho(end)+D_star*y_des/(C_mat*rho(1:end-1)); % cancelling terms - late botching (unstable)
+        
+%         u_stabilize = @(t,rho) -c*(rho(end)-D_star ...
+%                     - k_nom*log(C_mat*rho(1:end-1)/y_des)); % stabilizing terms
+        u_stabilize = @(t,rho) -c*(rho(end)-D_star...
+                -k_nom*log(C_mat*rho(1:end-1)/y_des(t)) ...
+                +y_des_d(t)./y_des(t)); % stabilizing terms - tracking
+        
         % --- safety override
-%         u_constraint = @(rho) 0; % ignore constraints on D(t)
-        % u_constraint =  @(rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
-        % u_constraint =  @(rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
-        u_constraint =  @(rho) max(0,- u_cancel(rho) - u_stabilize(rho) ...
-                        +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
-        % u_constraint =  @(rho) max(0,-(u_cancel(rho) + u_stabilize(rho))*L_g_h(rho(end))...
+        u_constraint = @(t,rho) 0; % ignore constraints on D(t)
+        % u_constraint =  @(t,rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
+        % u_constraint =  @(t,rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
+%         u_constraint =  @(t,rho) max(0,- u_cancel(t,rho) - u_stabilize(t,rho) ...
+%                         +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
+        % u_constraint =  @(t,rho) max(0,-(u_cancel(t,rho) + u_stabilize(t,rho))*L_g_h(rho(end))...
         %                         - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min_safe,D_max_safe]
 
-        u_ctrl = @(rho) u_cancel(rho) + u_stabilize(rho) + u_constraint(rho);
+        u_ctrl = @(t,rho) u_cancel(t,rho) + u_stabilize(t,rho) + u_constraint(t,rho);
         
         % additional plot parameters
         par_ctrl.c = c;
@@ -198,7 +213,7 @@ par_ctrl.ctrl_mode = ctrl_mode;
 
 %% simulate system
 dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
-                      u_ctrl(rho)];
+                      u_ctrl(t,rho)];
 
 lambda_0 = zeros(size(A_mat,1),1); % initial conditions
 lambda_0(end) = 1; % DO NOT change IC here, but in x0
@@ -217,7 +232,7 @@ u_ctrl_sample = zeros(size(t_sample));
 u_stabilize_sample = zeros(size(t_sample));
 % u_cancel_sample = zeros(size(t_sample));
 for kk = 1:size(lambda_sample,1)
-    u_ctrl_sample(kk) = u_ctrl(rho_sample(kk,:)');
+    u_ctrl_sample(kk) = u_ctrl(t_sample(kk),rho_sample(kk,:)');
 %     u_stabilize_sample(kk) = u_stabilize(rho_sample(kk,:)');
 %     u_cancel_sample(kk) = u_cancel(rho_sample(kk,:)');
 end
