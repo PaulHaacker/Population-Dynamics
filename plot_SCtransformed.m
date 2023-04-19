@@ -82,7 +82,7 @@ psi_sample_negTime = phi{end}(-t_sample_negTime)./f_star_fcn(-t_sample_negTime)/
 t_sample_ext = [t_sample_negTime(1:end-1),t_sample']; % extended time sample
 psi_sample_ext = [psi_sample_negTime(1:end-1),psi_sample_posTime]; % extended psi sample
 
-% finding par_lambda
+%% finding par_lambda
 lambda_vec = 0:.05:2;
 lambda_res_vec = zeros(size(lambda_vec)); % residual for finding par_lambda
 
@@ -97,7 +97,7 @@ if par_lambda <= 0 || max_res_lambda <= 0
     error('Error finding par_lambda.')
 end
 
-% finding par_sigma
+%% finding par_sigma
 sigma_vec = 0:.01:2;
 sigma_res_vec = zeros(size(sigma_vec)); % residual for finding par_sigma
 
@@ -115,7 +115,7 @@ if error_help <= 0
     error('Error finding par_sigma.')
 end
 
-% Lyapunov Functional
+%% Lyapunov Functional
 % par_sigma = .05; % suff small parameter
 par_b_1 = 10*b_star*exp(2*par_sigma*A)/par_sigma; % suff large parameter
 G_Lyap_Sample = zeros(size(t_sample)); % Lyap Functional G wrt psi
@@ -135,7 +135,7 @@ V_Lyap_Sample = .5*(1-exp(-eta_sample)).^2+.5*par_b_1*G_Lyap_Sample'.^2;
 % % (quasistatic) active filter set.
 % eta_ASF_0 = (c+1-k_safety)/c*D_sample - (c+1)*D_star/c;
 
-% find functional v2(psi_t)
+%% find functional v2(psi_t)
 v2_psi_vec = zeros(size(t_sample));
 
 for kk = 1:length(t_sample)

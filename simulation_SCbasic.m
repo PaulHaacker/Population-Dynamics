@@ -4,6 +4,10 @@
 close all
 clear
 
+%% ------ control mode
+
+ControlMode = 'Tracking';'Setpoint'; 
+
 %% ------ parameters
 
 % % [Schmidt17]
@@ -163,14 +167,29 @@ discretization.p_star = p_star;
 
 %% define controller stabilizing setpoint
 
-y_des = 11.7; % desired output setpoint
-D_des = gamma - y_des*b_star/p_star; % adequate s.s. diluton rate
-
-k_nom = b_star;
-D_ctrl = @(lambda) D_des; % mess around here
-% D_ctrl = @(lambda) D_des; % pure FF
-% D_ctrl = @(lambda) D_des + k_nom*log(C_mat*lambda/y_des); % logarithmic P-control
-% D_ctrl = @(lambda) D_des + (C_mat*lambda-y_des)/y_des; % linear P-control
+switch ControlMode
+    case 'Setpoint'
+        % setpoint
+        y_des = @(t) 11.7*ones(size(t)); % desired output setpoint
+        D_des = gamma - y_des(0)*b_star/p_star; % adequate s.s. diluton rate
+        % control input
+%         D_ctrl = @(t,lambda) gamma; % mess around here
+        D_ctrl = @(t,lambda) D_des; % pure FF
+        % D_ctrl = @(t,lambda) D_des + k_nom*log(C_mat*lambda/y_des); % logarithmic P-control
+        % D_ctrl = @(t,lambda) D_des + (C_mat*lambda-y_des)/y_des; % linear P-control
+    case 'Tracking'
+        % signal tracking
+        y_des = @(t) 10 + .5*sin(t);
+        y_des_d = @(t) .5*cos(t);
+        D_des = gamma - 5*b_star/p_star;
+        % control input
+%         D_ctrl = @(t,lambda) gamma ...
+%                 - y_des_d(t)./y_des(t); % mess around here
+        D_ctrl = @(t,lambda) gamma ...
+                - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % pure FF w/o FB
+%         D_ctrl = @(t,lambda) gamma + log(C_mat*lambda./y_des(t)) ...
+%                 - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % [KSS21]
+end
 
 par_ctrl.D_ctrl = D_ctrl;
 % D_min = par_ctrl.D_min;
@@ -186,7 +205,7 @@ par_ctrl.D_des = D_des;
 % choose desired setpoint for output - equivalent to choosing a desired
 % equilibrium profile x^\ast(a), or better its family parameter.
 
-dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(lambda) ...
+dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda) ...
             -eye(size(A_mat))*(phi_3'*lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
@@ -199,7 +218,7 @@ y_sample = C_mat*lambda_sample';
 
 D_sample = zeros(size(t_sample));
 for kk = 1:size(lambda_sample,1)
-    D_sample(kk) = D_ctrl(lambda_sample(kk,:)');
+    D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)');
 end
 
 %results
@@ -273,7 +292,7 @@ sgtitle('Population Dynamics with P-controller stabilizing setpoint','Interprete
 
 ax1 = subplot(2,6,1:3);
 hold on
-plot(t_sample,ones(size(y_sample))*y_des,'--k','Linewidth',1.5)
+plot(t_sample,y_des(t_sample),'--k','Linewidth',1.5)
 plot(t_sample,ones(size(y_sample))*gamma*p_star/b_star,'--b','Linewidth',1.5)
 plot(t_sample,y_sample)
 title('output $y(t)$')
@@ -281,15 +300,27 @@ legend('desired output $y_\mathrm{des}$','maximal physical s.s. output $y^{\ast}
 xlabel('time $t$')
 grid on
 
-ax2 = subplot(2,6,4:6);
-hold on
-plot(t_sample,ones(size(D_sample))*D_des,'--k','Linewidth',1.5)
-plot(t_sample,ones(size(D_sample))*gamma,'--b','Linewidth',1.5)
-plot(t_sample,D_sample)
-title('control input $D(t)$')
-legend('desired steady state input $D^\ast$','washout s.s. input $D^\ast_\mathrm{max}$','input $D(t)$')
-xlabel('time $t$')
-grid on
+switch ControlMode
+    case 'Setpoint'
+        ax2 = subplot(2,6,4:6);
+        hold on
+        plot(t_sample,ones(size(D_sample))*D_des,'--k','Linewidth',1.5)
+        plot(t_sample,ones(size(D_sample))*gamma,'--b','Linewidth',1.5)
+        plot(t_sample,D_sample)
+        title('control input $D(t)$')
+        legend('desired steady state input $D^\ast$','washout s.s. input $D^\ast_\mathrm{max}$','input $D(t)$')
+        xlabel('time $t$')
+        grid on
+    case 'Tracking'
+        ax2 = subplot(2,6,4:6);
+        hold on
+        plot(t_sample,ones(size(D_sample))*gamma,'--b','Linewidth',1.5)
+        plot(t_sample,D_sample)
+        title('control input $D(t)$')
+        legend('washout s.s. input $D^\ast_\mathrm{max}$','input $D(t)$')
+        xlabel('time $t$')
+        grid on
+end
 
 % plot the PDE state where x(t,a) = lambda(t)'*phi(a);
 
