@@ -1,9 +1,12 @@
+%% Population Dynamics
+% this script runs the simulation of the age-dependent population dynamics
+% as considered in [Schmidt18]
 close all
 clear
 
 %% ------ parameters
 
-% % [Schmidt17]
+% % [Schmidt18]
 % A = 2; % max age
 % mu = @(a) .1; % mortality rate fcn
 % k = @(a) 2*a.*(A-a); % birth kernel

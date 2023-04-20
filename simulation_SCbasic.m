@@ -1,5 +1,6 @@
-% Simulation of system with Self-Competition [Kurth21] w/o actuator
-% dynnmics.
+%% Population Dynamics with Self-Competition
+% this script runs a Simulation of system with Self-Competition [Kurth21] 
+% w/o actuator dynnmics.
 
 close all
 clear
@@ -185,10 +186,10 @@ switch ControlMode
         % control input
 %         D_ctrl = @(t,lambda) gamma ...
 %                 - y_des_d(t)./y_des(t); % mess around here
-        D_ctrl = @(t,lambda) gamma ...
-                - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % pure FF w/o FB
-%         D_ctrl = @(t,lambda) gamma + log(C_mat*lambda./y_des(t)) ...
-%                 - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % [KSS21]
+%         D_ctrl = @(t,lambda) gamma ...
+%                 - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % pure FF w/o FB
+        D_ctrl = @(t,lambda) gamma + log(C_mat*lambda./y_des(t)) ...
+                - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % [KSS21]
 end
 
 par_ctrl.D_ctrl = D_ctrl;
@@ -210,7 +211,7 @@ dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda) ...
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
-tspan = [0 60];
+tspan = [0 30];
 
 [t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);
 
@@ -293,10 +294,11 @@ sgtitle('Population Dynamics with P-controller stabilizing setpoint','Interprete
 ax1 = subplot(2,6,1:3);
 hold on
 plot(t_sample,y_des(t_sample),'--k','Linewidth',1.5)
-plot(t_sample,ones(size(y_sample))*gamma*p_star/b_star,'--b','Linewidth',1.5)
+% plot(t_sample,ones(size(y_sample))*gamma*p_star/b_star,'--b','Linewidth',1.5)
 plot(t_sample,y_sample)
 title('output $y(t)$')
-legend('desired output $y_\mathrm{des}$','maximal physical s.s. output $y^{\ast}_\mathrm{max}$','output $y(t)$')
+% legend('desired output $y_\mathrm{des}$','maximal physical s.s. output $y^{\ast}_\mathrm{max}$','output $y(t)$')
+legend('desired output $y_\mathrm{des}(t)$','output $y(t)$')
 xlabel('time $t$')
 grid on
 
