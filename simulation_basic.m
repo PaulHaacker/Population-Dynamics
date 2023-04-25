@@ -115,31 +115,26 @@ y_des_d = @(t) 0*ones(size(t));
 D_ctrl = @(t,lambda) D_star - y_des_d(t)./y_des(t)...
         + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
 
-
 dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
 tspan = [0 15];
+dt = .1; % only relevant for RK4 simulation
 
-[t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);
-
-y_sample = C_mat*lambda_sample';
-
-D_sample = zeros(size(t_sample));
-for kk = 1:size(lambda_sample,1)
-    D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)');
-end
-
-results.t_sample = t_sample;
-results.lambda_sample = lambda_sample;
-results.y_sample = y_sample;
-results.D_sample = D_sample;
-results.y_des = y_des;
-
-%% plot results ODE54 - P-controller stabilizing setpoint - DIAGNE plot
+sim_par.y_des = y_des;
+sim_par.y_des_d = y_des_d;
+sim_par.D_ctrl = D_ctrl;
+sim_par.dynamics = dynamics;
+sim_par.lambda_0 = lambda_0;
+sim_par.tspan = tspan;
+sim_par.dt = dt;
 
 sim_method = 'ODE45';
+results = sim_system(par_system, par_disc, sim_par, sim_method);
+
+%% plot results ODE45 - P-controller stabilizing setpoint - DIAGNE plot
+
 plot_results(par_system, par_disc, results,sim_method)
 
 %% simulate linear system RK4 manually - P-controller stabilizing setpoint
@@ -171,76 +166,20 @@ lambda_0(end) = 1;
 tspan = [0 15];
 dt = .1;
 
-[t_sample,lambda_sample] = runge_kutta_4(dynamics,tspan,dt,lambda_0);
+sim_par.y_des = y_des;
+sim_par.y_des_d = y_des_d;
+sim_par.D_ctrl = D_ctrl;
+sim_par.dynamics = dynamics;
+sim_par.lambda_0 = lambda_0;
+sim_par.tspan = tspan;
+sim_par.dt = dt;
 
-y_sample = C_mat*lambda_sample';
+sim_method = 'RK4';
+sim_system(par_system, par_disc, sim_par, sim_method)
 
-D_sample = zeros(size(t_sample));
-for kk = 1:size(lambda_sample,1)
-    D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)');
-end
-
-results.t_sample = t_sample;
-results.lambda_sample = lambda_sample;
-results.y_sample = y_sample;
-results.D_sample = D_sample;
-results.y_des = y_des;
 
 %% plot results RK4 manually - P-controller stabilizing setpoint - DIAGNE plot
-sim_method = 'RK4';
 plot_results(par_system, par_disc, results,sim_method)
-
-% fig_handle = figure;
-% sgtitle('Population Dynamics with P-controller -- RK4 manual','Interpreter','Latex')
-% 
-% % nexttile
-% % plot(t_sample_RK,lambda_sample)
-% % title('discretized states $\lambda(t)$')
-% % xlabel('time t')
-% % grid on
-% 
-% ax1 = subplot(2,6,1:3);
-% hold on
-% plot(t_sample_RK,y_des(t_sample_RK),'--k','Linewidth',1.5)
-% plot(t_sample_RK,y_sample)
-% title('output $y(t)$')
-% legend('desired output $y_\mathrm{des}(t)$','output $y(t)$')
-% xlabel('time $t$')
-% grid on
-% 
-% ax2 = subplot(2,6,4:6);
-% hold on
-% plot(t_sample_RK,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
-% plot(t_sample_RK,D_sample)
-% title('control input $D(t)$')
-% legend('steady state input $D^\ast$','input $D(t)$')
-% xlabel('time $t$')
-% grid on
-% 
-% % plot the PDE state where x(t,a) = lambda(t)'*phi(a);
-% 
-% % time sample from above
-% % define domain sample
-% a_sample = 0:0.1:A;
-% 
-% [a_mesh,t_mesh] = meshgrid(a_sample,t_sample_RK);
-% x_mesh = zeros(size(a_mesh));
-% 
-% for ii = 1:length(t_sample_RK)
-%     for jj = 1:length(a_sample)
-%         x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
-%     end
-% end
-% 
-% axes_handle = subplot(2,6,8:11);
-% % surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]);
-% surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
-% LessEdgeSurf(surf_plot,20,20);
-% axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
-% 
-% xlabel('age $a$')
-% ylabel('time $t$')
-% title('population density $f(t,a)$')
 
 
 %% functions
@@ -382,6 +321,52 @@ axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
 xlabel('age $a$')
 ylabel('time $t$')
 title('population density $f(t,a)$')
+end
+
+function results = sim_system(par_system, par_disc, sim_par, sim_method)
+% % extract data
+A = par_system.A; % max age - double
+mu = par_system.mu; % mortality rate - function
+mu_int = par_system.mu_int; % mortality rate integral - function
+k = par_system.k; % birth kernel - function handle
+p = par_system.p; % output kernel - double
+D_star = par_system.D_star; % steady-state dilution rate - double
+
+% % parameters for IC
+% x0 = par_system.x0; % function handle
+
+A_mat = par_disc.A_mat;
+C_mat = par_disc.C_mat;
+phi = par_disc.phi;
+
+y_des = sim_par.y_des;
+y_des_d = sim_par.y_des_d;
+D_ctrl = sim_par.D_ctrl;
+dynamics = sim_par.dynamics;
+lambda_0 = sim_par.lambda_0;
+tspan = sim_par.tspan;
+dt = sim_par.dt;
+
+% % simulate
+switch sim_method
+    case 'ODE45'
+        [t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);
+    case 'RK4'
+        [t_sample,lambda_sample] = runge_kutta_4(dynamics,tspan,dt,lambda_0);
+end
+
+y_sample = C_mat*lambda_sample';
+
+D_sample = zeros(size(t_sample));
+for kk = 1:size(lambda_sample,1)
+    D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)');
+end
+
+results.t_sample = t_sample;
+results.lambda_sample = lambda_sample;
+results.y_sample = y_sample;
+results.D_sample = D_sample;
+results.y_des = y_des;
 end
 
 %% stash of outdated sections
