@@ -131,11 +131,11 @@ sim_par.tspan = tspan;
 sim_par.dt = dt;
 
 sim_method = 'ODE45';
-results = sim_system(par_system, par_disc, sim_par, sim_method);
+resultsODE45 = sim_system(par_system, par_disc, sim_par, sim_method);
 
 %% plot results ODE45 - P-controller stabilizing setpoint - DIAGNE plot
 
-plot_results(par_system, par_disc, results,sim_method)
+plot_results(par_system, par_disc, resultsODE45,sim_method)
 
 %% simulate linear system RK4 manually - P-controller stabilizing setpoint
 % here, with controller u(t) == D_star + ln(y(t)/y_des)
@@ -175,12 +175,21 @@ sim_par.tspan = tspan;
 sim_par.dt = dt;
 
 sim_method = 'RK4';
-sim_system(par_system, par_disc, sim_par, sim_method)
-
+resultsRK4 = sim_system(par_system, par_disc, sim_par, sim_method);
 
 %% plot results RK4 manually - P-controller stabilizing setpoint - DIAGNE plot
-plot_results(par_system, par_disc, results,sim_method)
+plot_results(par_system, par_disc, resultsRK4,sim_method)
 
+
+%% debug plot
+
+% figure
+% title('comparing ODE45 and RK4')
+% hold on
+% plot(resultsODE45.t_sample,resultsODE45.y_sample,'.-')
+% plot(resultsRK4.t_sample,resultsRK4.y_sample,'.-')
+% legend('ODE45','RK4')
+% grid on
 
 %% functions
 
@@ -211,10 +220,10 @@ if ~isrow(x_0) % turn initial state into row, also modify function
     x_0 = x_0';
     f = @(t,x) f(t,x')';
 end
-n_steps = ceil((t_1-t_0)/dt)+1;
+t_vec = t_0:dt:t_1;
+n_steps = length(t_vec);
 x_vec = zeros(n_steps,length(x_0));
 x_vec(1,:)=x_0;
-t_vec = t_0:dt:t_1;
 if length(t_vec) ~= n_steps
     error('length error')
 end
