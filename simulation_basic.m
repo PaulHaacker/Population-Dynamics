@@ -70,24 +70,28 @@ end
 
 %% get discretization
 
-parameter.A = A; % max age - double
-parameter.mu = mu; % mortality rate - function
-parameter.mu_int = mu_int; % mortality rate integral - function
-parameter.k = k; % birth kernel - function handle
-parameter.p = p; % output kernel - double
-parameter.D_star = D_star; % steady-state dilution rate - double
+par_system.A = A; % max age - double
+par_system.mu = mu; % mortality rate - function
+par_system.mu_int = mu_int; % mortality rate integral - function
+par_system.k = k; % birth kernel - function handle
+par_system.p = p; % output kernel - double
+par_system.D_star = D_star; % steady-state dilution rate - double
 
 % parameters for IC
-parameter.x0 = x0; % function handle
+par_system.x0 = x0; % function handle
 
 % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
 
-parameter.sigma(1) = sigma(1);
-parameter.omega(1) = omega(1);
-parameter.sigma(2) = sigma(2);
-parameter.omega(2) = omega(2);
+par_system.sigma(1) = sigma(1);
+par_system.omega(1) = omega(1);
+par_system.sigma(2) = sigma(2);
+par_system.omega(2) = omega(2);
 
-[A_mat, C_mat, phi] = getDiscretization(parameter);
+[A_mat, C_mat, phi] = getDiscretization(par_system);
+
+par_disc.A_mat = A_mat;
+par_disc.C_mat = C_mat;
+par_disc.phi = phi;
 
 %% simulate linear system ODE45 - P-controller stabilizing setpoint
 % here, with controller u(t) == D_star + ln(y(t)/y_des)
@@ -127,58 +131,16 @@ for kk = 1:size(lambda_sample,1)
     D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)');
 end
 
+results.t_sample = t_sample;
+results.lambda_sample = lambda_sample;
+results.y_sample = y_sample;
+results.D_sample = D_sample;
+results.y_des = y_des;
+
 %% plot results ODE54 - P-controller stabilizing setpoint - DIAGNE plot
-fig_handle = figure;
-sgtitle('Population Dynamics with P-controller -- ODE45','Interpreter','Latex')
 
-% nexttile
-% plot(t_sample,lambda_sample)
-% title('discretized states $\lambda(t)$')
-% xlabel('time t')
-% grid on
-
-ax1 = subplot(2,6,1:3);
-hold on
-plot(t_sample,y_des(t_sample),'--k','Linewidth',1.5)
-plot(t_sample,y_sample)
-title('output $y(t)$')
-legend('desired output $y_\mathrm{des}(t)$','output $y(t)$')
-xlabel('time $t$')
-grid on
-
-ax2 = subplot(2,6,4:6);
-hold on
-plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
-plot(t_sample,D_sample)
-title('control input $D(t)$')
-legend('steady state input $D^\ast$','input $D(t)$')
-xlabel('time $t$')
-grid on
-
-% plot the PDE state where x(t,a) = lambda(t)'*phi(a);
-
-% time sample from above
-% define domain sample
-a_sample = 0:0.1:A;
-
-[a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
-x_mesh = zeros(size(a_mesh));
-
-for ii = 1:length(t_sample)
-    for jj = 1:length(a_sample)
-        x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
-    end
-end
-
-axes_handle = subplot(2,6,8:11);
-% surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]);
-surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
-LessEdgeSurf(surf_plot,20,20);
-axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
-
-xlabel('age $a$')
-ylabel('time $t$')
-title('population density $f(t,a)$')
+sim_method = 'ODE45';
+plot_results(par_system, par_disc, results,sim_method)
 
 %% simulate linear system RK4 manually - P-controller stabilizing setpoint
 % here, with controller u(t) == D_star + ln(y(t)/y_des)
@@ -209,67 +171,76 @@ lambda_0(end) = 1;
 tspan = [0 15];
 dt = .1;
 
-[t_sample_RK,lambda_sample] = runge_kutta_4(dynamics,tspan,dt,lambda_0);
+[t_sample,lambda_sample] = runge_kutta_4(dynamics,tspan,dt,lambda_0);
 
 y_sample = C_mat*lambda_sample';
 
-D_sample = zeros(size(t_sample_RK));
+D_sample = zeros(size(t_sample));
 for kk = 1:size(lambda_sample,1)
-    D_sample(kk) = D_ctrl(t_sample_RK(kk),lambda_sample(kk,:)');
+    D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)');
 end
+
+results.t_sample = t_sample;
+results.lambda_sample = lambda_sample;
+results.y_sample = y_sample;
+results.D_sample = D_sample;
+results.y_des = y_des;
 
 %% plot results RK4 manually - P-controller stabilizing setpoint - DIAGNE plot
-fig_handle = figure;
-sgtitle('Population Dynamics with P-controller -- RK4 manual','Interpreter','Latex')
+sim_method = 'RK4';
+plot_results(par_system, par_disc, results,sim_method)
 
-% nexttile
-% plot(t_sample_RK,lambda_sample)
-% title('discretized states $\lambda(t)$')
-% xlabel('time t')
+% fig_handle = figure;
+% sgtitle('Population Dynamics with P-controller -- RK4 manual','Interpreter','Latex')
+% 
+% % nexttile
+% % plot(t_sample_RK,lambda_sample)
+% % title('discretized states $\lambda(t)$')
+% % xlabel('time t')
+% % grid on
+% 
+% ax1 = subplot(2,6,1:3);
+% hold on
+% plot(t_sample_RK,y_des(t_sample_RK),'--k','Linewidth',1.5)
+% plot(t_sample_RK,y_sample)
+% title('output $y(t)$')
+% legend('desired output $y_\mathrm{des}(t)$','output $y(t)$')
+% xlabel('time $t$')
 % grid on
-
-ax1 = subplot(2,6,1:3);
-hold on
-plot(t_sample_RK,y_des(t_sample_RK),'--k','Linewidth',1.5)
-plot(t_sample_RK,y_sample)
-title('output $y(t)$')
-legend('desired output $y_\mathrm{des}(t)$','output $y(t)$')
-xlabel('time $t$')
-grid on
-
-ax2 = subplot(2,6,4:6);
-hold on
-plot(t_sample_RK,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
-plot(t_sample_RK,D_sample)
-title('control input $D(t)$')
-legend('steady state input $D^\ast$','input $D(t)$')
-xlabel('time $t$')
-grid on
-
-% plot the PDE state where x(t,a) = lambda(t)'*phi(a);
-
-% time sample from above
-% define domain sample
-a_sample = 0:0.1:A;
-
-[a_mesh,t_mesh] = meshgrid(a_sample,t_sample_RK);
-x_mesh = zeros(size(a_mesh));
-
-for ii = 1:length(t_sample_RK)
-    for jj = 1:length(a_sample)
-        x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
-    end
-end
-
-axes_handle = subplot(2,6,8:11);
-% surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]);
-surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
-LessEdgeSurf(surf_plot,20,20);
-axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
-
-xlabel('age $a$')
-ylabel('time $t$')
-title('population density $f(t,a)$')
+% 
+% ax2 = subplot(2,6,4:6);
+% hold on
+% plot(t_sample_RK,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+% plot(t_sample_RK,D_sample)
+% title('control input $D(t)$')
+% legend('steady state input $D^\ast$','input $D(t)$')
+% xlabel('time $t$')
+% grid on
+% 
+% % plot the PDE state where x(t,a) = lambda(t)'*phi(a);
+% 
+% % time sample from above
+% % define domain sample
+% a_sample = 0:0.1:A;
+% 
+% [a_mesh,t_mesh] = meshgrid(a_sample,t_sample_RK);
+% x_mesh = zeros(size(a_mesh));
+% 
+% for ii = 1:length(t_sample_RK)
+%     for jj = 1:length(a_sample)
+%         x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+%     end
+% end
+% 
+% axes_handle = subplot(2,6,8:11);
+% % surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]);
+% surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
+% LessEdgeSurf(surf_plot,20,20);
+% axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
+% 
+% xlabel('age $a$')
+% ylabel('time $t$')
+% title('population density $f(t,a)$')
 
 
 %% functions
@@ -321,6 +292,96 @@ for t = t_vec(2:end)
     
     x_vec(i,:) = x_vec(i-1,:) + (k_1 + k_4)/6 + (k_2 + k_3)/3   ;
 end
+end
+
+function [] = plot_results(par_system, par_disc, results, sim_method)
+% functionalized plot.
+
+% % extract data
+A = par_system.A; % max age - double
+mu = par_system.mu; % mortality rate - function
+mu_int = par_system.mu_int; % mortality rate integral - function
+k = par_system.k; % birth kernel - function handle
+p = par_system.p; % output kernel - double
+D_star = par_system.D_star; % steady-state dilution rate - double
+
+% % parameters for IC
+% x0 = par_system.x0; % function handle
+
+% % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
+% 
+% par_system.sigma(1) = sigma(1);
+% par_system.omega(1) = omega(1);
+% par_system.sigma(2) = sigma(2);
+% par_system.omega(2) = omega(2);
+
+% par_disc.A_mat = A_mat;
+% par_disc.C_mat = C_mat;
+phi = par_disc.phi;
+
+t_sample = results.t_sample;
+lambda_sample = results.lambda_sample;
+y_sample = results.y_sample;
+y_des = results.y_des;
+D_sample = results.D_sample;
+
+% % plot results ODE54 - P-controller stabilizing setpoint - DIAGNE plot
+fig_handle = figure;
+switch sim_method
+    case 'ODE45'
+        sgtitle('Population Dynamics with P-controller -- ODE45','Interpreter','Latex')
+    case 'RK4'
+        sgtitle('Population Dynamics with P-controller -- ODE45','Interpreter','Latex')
+end
+
+% nexttile
+% plot(t_sample,lambda_sample)
+% title('discretized states $\lambda(t)$')
+% xlabel('time t')
+% grid on
+
+ax1 = subplot(2,6,1:3);
+hold on
+plot(t_sample,y_des(t_sample),'--k','Linewidth',1.5)
+plot(t_sample,y_sample)
+title('output $y(t)$')
+legend('desired output $y_\mathrm{des}(t)$','output $y(t)$')
+xlabel('time $t$')
+grid on
+
+ax2 = subplot(2,6,4:6);
+hold on
+plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+plot(t_sample,D_sample)
+title('control input $D(t)$')
+legend('steady state input $D^\ast$','input $D(t)$')
+xlabel('time $t$')
+grid on
+
+% plot the PDE state where x(t,a) = lambda(t)'*phi(a);
+
+% time sample from above
+% define domain sample
+a_sample = 0:0.1:A;
+
+[a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
+x_mesh = zeros(size(a_mesh));
+
+for ii = 1:length(t_sample)
+    for jj = 1:length(a_sample)
+        x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+    end
+end
+
+axes_handle = subplot(2,6,8:11);
+% surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]);
+surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
+LessEdgeSurf(surf_plot,20,20);
+axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
+
+xlabel('age $a$')
+ylabel('time $t$')
+title('population density $f(t,a)$')
 end
 
 %% stash of outdated sections
