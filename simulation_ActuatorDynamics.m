@@ -120,17 +120,17 @@ discretization.phi = phi;
 % equilibrium profile x^\ast(a), or better its family parameter.
 % edit: now also works with trajectories
 
-% % setpoint
-% y_des = @(t) 10*ones(size(t));
-% y_des_d = @(t) 0*ones(size(t));
-% y_des_d2 = @(t) 0*ones(size(t));
+% setpoint
+y_des = @(t) 10*ones(size(t));
+y_des_d = @(t) 0*ones(size(t));
+y_des_d2 = @(t) 0*ones(size(t));
 
-% time signal
-omega_sig = 1;
-y_hat_sig = 1;
-y_des = @(t) 10 + y_hat_sig*sin(omega_sig*t);
-y_des_d = @(t) y_hat_sig*omega_sig*cos(omega_sig*t);
-y_des_d2 = @(t) - y_hat_sig*omega_sig^2*sin(omega_sig*t);
+% % time signal
+% omega_sig = 1;
+% y_hat_sig = 1;
+% y_des = @(t) 10 + y_hat_sig*sin(omega_sig*t);
+% y_des_d = @(t) y_hat_sig*omega_sig*cos(omega_sig*t);
+% y_des_d2 = @(t) - y_hat_sig*omega_sig^2*sin(omega_sig*t);
 
 % allowed interval of dilution rate
 D_min = 0; % minimum Dilution rate constraint for Safety-Filter

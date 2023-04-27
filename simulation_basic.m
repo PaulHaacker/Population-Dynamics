@@ -93,7 +93,7 @@ par_disc.A_mat = A_mat;
 par_disc.C_mat = C_mat;
 par_disc.phi = phi;
 
-%% simulate linear system ODE45 - P-controller stabilizing setpoint
+%% simulate system ODE45 - P-controller stabilizing setpoint
 % here, with controller u(t) == D_star + ln(y(t)/y_des)
 % notice that y(t) = C*lambda(t)
 % denote the simulation state by lambda
@@ -134,10 +134,9 @@ sim_method = 'ODE45';
 resultsODE45 = sim_system(par_system, par_disc, sim_par, sim_method);
 
 %% plot results ODE45 - P-controller stabilizing setpoint - DIAGNE plot
+% plot_results(par_system, par_disc, resultsODE45,sim_method)
 
-plot_results(par_system, par_disc, resultsODE45,sim_method)
-
-%% simulate linear system RK4 manually - P-controller stabilizing setpoint
+%% simulate system RK4 manually - P-controller stabilizing setpoint
 % here, with controller u(t) == D_star + ln(y(t)/y_des)
 % notice that y(t) = C*lambda(t)
 % denote the simulation state by lambda
@@ -178,18 +177,131 @@ sim_method = 'RK4';
 resultsRK4 = sim_system(par_system, par_disc, sim_par, sim_method);
 
 %% plot results RK4 manually - P-controller stabilizing setpoint - DIAGNE plot
-plot_results(par_system, par_disc, resultsRK4,sim_method)
+% plot_results(par_system, par_disc, resultsRK4,sim_method)
+
+%% simulate system, euler scheme manually - P-controller stabilizing setpoint
+% here, with controller u(t) == D_star + ln(y(t)/y_des)
+% notice that y(t) = C*lambda(t)
+% denote the simulation state by lambda
+
+% choose desired setpoint for output - equivalent to choosing a desired
+% equilibrium profile x^\ast(a), or better its family parameter.
+% edit: also works for trajectories!
+
+% static setpoint:
+y_des = @(t) 12*ones(size(t));
+y_des_d = @(t) 0*ones(size(t));
+
+% % time signal:
+% y_des = @(t) 12+sin(t);
+% y_des_d = @(t) cos(t);
+
+% D_ctrl = @(t,lambda) D_star + log(C_mat*lambda/y_des); % logarithmic P-gain
+% D_ctrl = @(t,lambda) D_star + (C_mat*lambda-y_des)/y_des; % linear P-gain
+D_ctrl = @(t,lambda) D_star - y_des_d(t)./y_des(t)...
+        + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
+    
+% input delay
+delay = .5;
+
+dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
+
+lambda_0 = zeros(size(A_mat,1),1);
+lambda_0(end) = 1;
+tspan = [0 15];
+dt = .01;
+
+sim_par.y_des = y_des;
+sim_par.y_des_d = y_des_d;
+sim_par.D_ctrl = D_ctrl;
+sim_par.dynamics = dynamics;
+sim_par.lambda_0 = lambda_0;
+sim_par.tspan = tspan;
+sim_par.dt = dt;
+sim_par.delay = delay;
+
+sim_method = 'euler';
+resultsEuler = sim_system(par_system, par_disc, sim_par, sim_method);
+
+%% plot results euler manually - P-controller stabilizing setpoint - DIAGNE plot
+% plot_results(par_system, par_disc, resultsEuler,sim_method)
+
+%% simulate delayed system, euler scheme manually - P-controller stabilizing setpoint
+% here, with controller u(t) == D_star + ln(y(t)/y_des)
+% notice that y(t) = C*lambda(t)
+% denote the simulation state by lambda
+
+% choose desired setpoint for output - equivalent to choosing a desired
+% equilibrium profile x^\ast(a), or better its family parameter.
+% edit: also works for trajectories!
+
+% static setpoint:
+y_des = @(t) 12*ones(size(t));
+y_des_d = @(t) 0*ones(size(t));
+
+% % time signal:
+% y_des = @(t) 12+sin(t);
+% y_des_d = @(t) cos(t);
+
+% D_ctrl = @(t,lambda) D_star + log(C_mat*lambda/y_des); % logarithmic P-gain
+% D_ctrl = @(t,lambda) D_star + (C_mat*lambda-y_des)/y_des; % linear P-gain
+D_ctrl = @(t,lambda) D_star - y_des_d(t)./y_des(t)...
+        + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
+    
+% input delay
+delay = .5;
+
+dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
+
+lambda_0 = zeros(size(A_mat,1),1);
+lambda_0(end) = 1;
+tspan = [0 15];
+dt = .01; % needs to be small for numeric stability
+
+sim_par.y_des = y_des;
+sim_par.y_des_d = y_des_d;
+sim_par.D_ctrl = D_ctrl;
+sim_par.dynamics = dynamics;
+sim_par.lambda_0 = lambda_0;
+sim_par.tspan = tspan;
+sim_par.dt = dt;
+sim_par.delay = delay;
+sim_par.A_mat = A_mat;
+
+sim_method = 'euler_delay';
+resultsEuler_delay = sim_system(par_system, par_disc, sim_par, sim_method);
+
+%% plot results delay euler manually - P-controller stabilizing setpoint - DIAGNE plot
+plot_results(par_system, par_disc, resultsEuler_delay,sim_method)
 
 
 %% debug plot
 
-% figure
-% title('comparing ODE45 and RK4')
-% hold on
-% plot(resultsODE45.t_sample,resultsODE45.y_sample,'.-')
-% plot(resultsRK4.t_sample,resultsRK4.y_sample,'.-')
-% legend('ODE45','RK4')
-% grid on
+figure
+tiledlayout(2,1)
+nexttile % absolute results
+title('absolute comparing ODE45, RK4, euler')
+hold on
+plot(resultsODE45.t_sample,resultsODE45.y_sample,'.-')
+plot(resultsRK4.t_sample,resultsRK4.y_sample,'.-')
+plot(resultsEuler.t_sample,resultsEuler.y_sample,'.-')
+legend(['ODE45 -- \# of steps ',num2str(length(resultsODE45.t_sample))],...
+    ['RK4 -- \# of steps ',num2str(length(resultsRK4.t_sample))],...
+    ['euler -- \# of steps ',num2str(length(resultsEuler.t_sample))])
+grid on
+
+nexttile
+title('relative of RK4, euler to ODE45')
+hold on
+plot(resultsODE45.t_sample,abs(resultsODE45.y_sample ...
+    - interp1(resultsRK4.t_sample,resultsRK4.y_sample,resultsODE45.t_sample'))...
+    ./abs(resultsODE45.y_sample),'.-')
+plot(resultsODE45.t_sample,abs(resultsODE45.y_sample ...
+    - interp1(resultsEuler.t_sample,resultsEuler.y_sample,resultsODE45.t_sample'))...
+    ./abs(resultsODE45.y_sample),'.-')
+legend(['RK4 to ODE45 -- \# of steps ',num2str(length(resultsRK4.t_sample))],...
+    ['euler to ODE45 -- \# of steps ',num2str(length(resultsEuler.t_sample))])
+grid on
 
 %% functions
 
@@ -242,6 +354,117 @@ for t = t_vec(2:end)
 end
 end
 
+function [t_vec,x_vec]=euler(sim_par,t_range,dt,x_0)
+% % inputs:
+% dynamics as fcn f(t,x)
+% initial time t_0
+% final time t_1
+% (fixed) step size dt
+% initial condition x_0
+% % outputs:
+% state trajectory x_vec 
+
+% extract parameters
+y_des = sim_par.y_des;
+y_des_d = sim_par.y_des_d;
+D_ctrl = sim_par.D_ctrl;
+f = sim_par.dynamics;
+lambda_0 = sim_par.lambda_0;
+tspan = sim_par.tspan;
+dt = sim_par.dt;
+
+% Initilization
+t_0 = min(t_range);
+t_1 = max(t_range);
+if ~isrow(x_0) % turn initial state into row, also modify function
+    x_0 = x_0';
+    f = @(t,x) f(t,x')';
+end
+
+t_vec = t_0:dt:t_1;
+n_steps = length(t_vec);
+x_vec = zeros(n_steps,length(x_0));
+x_vec(1,:)=x_0;
+if length(t_vec) ~= n_steps
+    error('length error')
+end
+i = 1;
+
+% Euler-Scheme 1st order
+for t = t_vec(2:end)
+    i = i+1;
+    
+%     k_1 = dt * f((t-dt),x_vec(i-1,:));
+%     k_2 = dt * f((t-dt) + .5*dt,x_vec(i-1,:) + .5*k_1);
+%     k_3 = dt * f((t-dt) + .5*dt,x_vec(i-1,:) + .5*k_2);
+%     k_4 = dt * f((t-dt) + dt,x_vec(i-1,:) + k_3);
+    
+    x_vec(i,:) = x_vec(i-1,:) + dt * f(t-dt,x_vec(i-1,:));
+end
+end
+
+function [t_vec,x_vec]=euler_delay(sim_par,t_range,dt,x_0)
+% % inputs:
+% dynamics as fcn f(t,x)
+% initial time t_0
+% final time t_1
+% (fixed) step size dt
+% initial condition x_0
+% % outputs:
+% state trajectory x_vec 
+
+% extract parameters
+y_des = sim_par.y_des;
+y_des_d = sim_par.y_des_d;
+D_ctrl = sim_par.D_ctrl;
+f = sim_par.dynamics;
+lambda_0 = sim_par.lambda_0;
+tspan = sim_par.tspan;
+dt = sim_par.dt;
+delay = sim_par.delay;
+A_mat = sim_par.A_mat;
+
+% Initilization
+t_0 = min(t_range);
+t_1 = max(t_range);
+if ~isrow(x_0) % turn initial state into row, also modify function
+    x_0 = x_0';
+    f = @(t,x) f(t,x')';
+end
+
+t_vec = t_0:dt:t_1;
+n_steps = length(t_vec);
+x_vec = zeros(n_steps,length(x_0));
+x_vec(1,:)=x_0;
+if length(t_vec) ~= n_steps
+    error('length error')
+end
+i = 1;
+
+% Euler-Scheme 1st order
+for t = t_vec(2:end)
+    i = i+1;
+    
+    x_stage = x_vec(i-1,:);
+    t_stage = t-dt;
+    if t_stage>=t_0+delay % delayed input
+        t_delayed = t_stage-delay;
+        x_delayed = interp1(t_vec,x_vec,t_delayed); % interpolate, since time steps dont neccessarily match up.
+        f_stage = x_stage*(A_mat-eye(size(A_mat))*D_ctrl(t_delayed,x_delayed'))';
+    else
+        f_stage = x_stage*A_mat'; % D_ctrl = 0 for t_stage <= t0 + delay
+    end
+    
+%     k_1 = dt * f((t-dt),x_vec(i-1,:));
+%     k_2 = dt * f((t-dt) + .5*dt,x_vec(i-1,:) + .5*k_1);
+%     k_3 = dt * f((t-dt) + .5*dt,x_vec(i-1,:) + .5*k_2);
+%     k_4 = dt * f((t-dt) + dt,x_vec(i-1,:) + k_3);
+    
+    x_vec(i,:) = x_stage + dt * f_stage;
+%     x_vec(i,:) = x_vec(i-1,:) + dt * f(t-dt,x_vec(i-1,:));
+end
+end
+
 function [] = plot_results(par_system, par_disc, results, sim_method)
 % functionalized plot.
 
@@ -279,7 +502,11 @@ switch sim_method
     case 'ODE45'
         sgtitle('Population Dynamics with P-controller -- ODE45','Interpreter','Latex')
     case 'RK4'
-        sgtitle('Population Dynamics with P-controller -- ODE45','Interpreter','Latex')
+        sgtitle('Population Dynamics with P-controller -- RK4','Interpreter','Latex')
+    case 'euler'
+        sgtitle('Population Dynamics with P-controller -- euler','Interpreter','Latex')
+    case 'euler w/ delay'
+        sgtitle('Population Dynamics with P-controller and input delay -- euler','Interpreter','Latex')
 end
 
 % nexttile
@@ -362,6 +589,10 @@ switch sim_method
         [t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);
     case 'RK4'
         [t_sample,lambda_sample] = runge_kutta_4(dynamics,tspan,dt,lambda_0);
+    case 'euler'
+        [t_sample,lambda_sample] = euler(sim_par,tspan,dt,lambda_0);
+    case 'euler_delay'
+        [t_sample,lambda_sample] = euler_delay(sim_par,tspan,dt,lambda_0);
 end
 
 y_sample = C_mat*lambda_sample';
@@ -379,6 +610,8 @@ results.y_des = y_des;
 end
 
 %% stash of outdated sections
+
+
 %% plot results - P-controller stabilizing setpoint
 % figure
 % tiles_handle = tiledlayout(2,2);
@@ -431,7 +664,7 @@ end
 % xlabel('age $a$')
 % ylabel('time $t$')
 % title('population density $x(t,a)$')
-%% simulate linear system - Steady State Input
+%% simulate system - Steady State Input
 
 % % here, with steady state input u(t) == D_star
 % % denote the simulation state by lambda
