@@ -134,7 +134,7 @@ sim_method = 'ODE45';
 resultsODE45 = sim_system(par_system, par_disc, sim_par, sim_method);
 
 %% plot results ODE45 - P-controller stabilizing setpoint - DIAGNE plot
-% plot_results(par_system, par_disc, resultsODE45,sim_method)
+plot_results(par_system, par_disc, resultsODE45,sim_method)
 
 %% simulate system RK4 manually - P-controller stabilizing setpoint
 % here, with controller u(t) == D_star + ln(y(t)/y_des)
@@ -245,11 +245,14 @@ y_des_d = @(t) 0*ones(size(t));
 
 % D_ctrl = @(t,lambda) D_star + log(C_mat*lambda/y_des); % logarithmic P-gain
 % D_ctrl = @(t,lambda) D_star + (C_mat*lambda-y_des)/y_des; % linear P-gain
+% D_ctrl = @(t,lambda) max([D_star - y_des_d(t)./y_des(t)...
+%         + log(C_mat*lambda./y_des(t)),0]); % linear P-gain - dynamic FF +
+% %       saturation.
 D_ctrl = @(t,lambda) D_star - y_des_d(t)./y_des(t)...
         + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
     
 % input delay
-delay = .5;
+delay = 5;
 
 dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
 
@@ -277,31 +280,31 @@ plot_results(par_system, par_disc, resultsEuler_delay,sim_method)
 
 %% debug plot
 
-figure
-tiledlayout(2,1)
-nexttile % absolute results
-title('absolute comparing ODE45, RK4, euler')
-hold on
-plot(resultsODE45.t_sample,resultsODE45.y_sample,'.-')
-plot(resultsRK4.t_sample,resultsRK4.y_sample,'.-')
-plot(resultsEuler.t_sample,resultsEuler.y_sample,'.-')
-legend(['ODE45 -- \# of steps ',num2str(length(resultsODE45.t_sample))],...
-    ['RK4 -- \# of steps ',num2str(length(resultsRK4.t_sample))],...
-    ['euler -- \# of steps ',num2str(length(resultsEuler.t_sample))])
-grid on
-
-nexttile
-title('relative of RK4, euler to ODE45')
-hold on
-plot(resultsODE45.t_sample,abs(resultsODE45.y_sample ...
-    - interp1(resultsRK4.t_sample,resultsRK4.y_sample,resultsODE45.t_sample'))...
-    ./abs(resultsODE45.y_sample),'.-')
-plot(resultsODE45.t_sample,abs(resultsODE45.y_sample ...
-    - interp1(resultsEuler.t_sample,resultsEuler.y_sample,resultsODE45.t_sample'))...
-    ./abs(resultsODE45.y_sample),'.-')
-legend(['RK4 to ODE45 -- \# of steps ',num2str(length(resultsRK4.t_sample))],...
-    ['euler to ODE45 -- \# of steps ',num2str(length(resultsEuler.t_sample))])
-grid on
+% figure
+% tiledlayout(2,1)
+% nexttile % absolute results
+% title('absolute comparing ODE45, RK4, euler')
+% hold on
+% plot(resultsODE45.t_sample,resultsODE45.y_sample,'.-')
+% plot(resultsRK4.t_sample,resultsRK4.y_sample,'.-')
+% plot(resultsEuler.t_sample,resultsEuler.y_sample,'.-')
+% legend(['ODE45 -- \# of steps ',num2str(length(resultsODE45.t_sample))],...
+%     ['RK4 -- \# of steps ',num2str(length(resultsRK4.t_sample))],...
+%     ['euler -- \# of steps ',num2str(length(resultsEuler.t_sample))])
+% grid on
+% 
+% nexttile
+% title('relative of RK4, euler to ODE45')
+% hold on
+% plot(resultsODE45.t_sample,abs(resultsODE45.y_sample ...
+%     - interp1(resultsRK4.t_sample,resultsRK4.y_sample,resultsODE45.t_sample'))...
+%     ./abs(resultsODE45.y_sample),'.-')
+% plot(resultsODE45.t_sample,abs(resultsODE45.y_sample ...
+%     - interp1(resultsEuler.t_sample,resultsEuler.y_sample,resultsODE45.t_sample'))...
+%     ./abs(resultsODE45.y_sample),'.-')
+% legend(['RK4 to ODE45 -- \# of steps ',num2str(length(resultsRK4.t_sample))],...
+%     ['euler to ODE45 -- \# of steps ',num2str(length(resultsEuler.t_sample))])
+% grid on
 
 %% functions
 
