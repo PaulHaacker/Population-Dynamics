@@ -134,7 +134,7 @@ sim_method = 'ODE45';
 resultsODE45 = sim_system(par_system, par_disc, sim_par, sim_method);
 
 %% plot results ODE45 - P-controller stabilizing setpoint - DIAGNE plot
-plot_results(par_system, par_disc, resultsODE45,sim_method)
+% plot_results(par_system, par_disc, resultsODE45,sim_method)
 
 %% simulate system RK4 manually - P-controller stabilizing setpoint
 % here, with controller u(t) == D_star + ln(y(t)/y_des)
@@ -244,23 +244,23 @@ y_des_d = @(t) 0*ones(size(t));
 % y_des_d = @(t) cos(t);
     
 % input delay
-delay = 9;
+delay = 5;
 
 % D_ctrl = @(t,lambda,z) D_star + log(C_mat*lambda/y_des); % logarithmic P-gain
 % D_ctrl = @(t,lambda,z) D_star + (C_mat*lambda-y_des)/y_des; % linear P-gain
 % D_ctrl = @(t,lambda,z) max([D_star - y_des_d(t)./y_des(t)...
 %         + log(C_mat*lambda./y_des(t)),0]); % linear P-gain - dynamic FF +
 % %       saturation.
-D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
-        + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
 % D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
-%         +( log(C_mat*lambda./y_des(t)) + D_star*delay - z) ; % linear P-gain - dynamic FF + delay compensation
+%         + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
+D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
+        +( log(C_mat*lambda./y_des(t)) + D_star*delay - z) ; % linear P-gain - dynamic FF + delay compensation
 
 % dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
-tspan = [0 25];
+tspan = [0 16.5];
 dt = .01; % needs to be small for numeric stability
 
 sim_par.y_des = y_des;
@@ -463,8 +463,8 @@ for t = t_vec(2:end)
     if t_stage>=t_0+delay % delayed input
         t_delayed = t_stage-delay;
         x_delayed = interp1(t_vec,x_vec,t_delayed); % interpolate, since time steps dont neccessarily match up.
-        lambda_delayed = x_stage(1:end-1);
-        z_delayed = x_stage(end);
+        lambda_delayed = x_delayed(1:end-1);
+        z_delayed = x_delayed(end);
         f_stage = [lambda_stage*(A_mat-eye(size(A_mat))*D_ctrl(t_delayed,lambda_delayed',z_delayed))',...
                    D_ctrl(t_stage,lambda_stage',z_stage) - D_ctrl(t_delayed,lambda_delayed',z_delayed)];
     else % t_stage < t_0+delay
