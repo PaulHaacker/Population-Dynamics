@@ -242,34 +242,37 @@ y_des_d = @(t) 0*ones(size(t));
 % % time signal:
 % y_des = @(t) 12+sin(t);
 % y_des_d = @(t) cos(t);
-
-% D_ctrl = @(t,lambda) D_star + log(C_mat*lambda/y_des); % logarithmic P-gain
-% D_ctrl = @(t,lambda) D_star + (C_mat*lambda-y_des)/y_des; % linear P-gain
-% D_ctrl = @(t,lambda) max([D_star - y_des_d(t)./y_des(t)...
-%         + log(C_mat*lambda./y_des(t)),0]); % linear P-gain - dynamic FF +
-% %       saturation.
-D_ctrl = @(t,lambda) D_star - y_des_d(t)./y_des(t)...
-        + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
     
 % input delay
-delay = 5;
+delay = 9;
 
-dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
+% D_ctrl = @(t,lambda,z) D_star + log(C_mat*lambda/y_des); % logarithmic P-gain
+% D_ctrl = @(t,lambda,z) D_star + (C_mat*lambda-y_des)/y_des; % linear P-gain
+% D_ctrl = @(t,lambda,z) max([D_star - y_des_d(t)./y_des(t)...
+%         + log(C_mat*lambda./y_des(t)),0]); % linear P-gain - dynamic FF +
+% %       saturation.
+D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
+        + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
+% D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
+%         +( log(C_mat*lambda./y_des(t)) + D_star*delay - z) ; % linear P-gain - dynamic FF + delay compensation
+
+% dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
-tspan = [0 15];
+tspan = [0 25];
 dt = .01; % needs to be small for numeric stability
 
 sim_par.y_des = y_des;
 sim_par.y_des_d = y_des_d;
 sim_par.D_ctrl = D_ctrl;
-sim_par.dynamics = dynamics;
+% sim_par.dynamics = dynamics;
 sim_par.lambda_0 = lambda_0;
 sim_par.tspan = tspan;
 sim_par.dt = dt;
 sim_par.delay = delay;
 sim_par.A_mat = A_mat;
+sim_par.D_star = D_star;
 
 sim_method = 'euler_delay';
 resultsEuler_delay = sim_system(par_system, par_disc, sim_par, sim_method);
@@ -426,10 +429,15 @@ tspan = sim_par.tspan;
 dt = sim_par.dt;
 delay = sim_par.delay;
 A_mat = sim_par.A_mat;
+D_star = sim_par.D_star;
 
 % Initilization
 t_0 = min(t_range);
 t_1 = max(t_range);
+
+% extend state vector by z
+x_0(end+1) = 0; % z0 = 0
+
 if ~isrow(x_0) % turn initial state into row, also modify function
     x_0 = x_0';
     f = @(t,x) f(t,x')';
@@ -449,13 +457,19 @@ for t = t_vec(2:end)
     i = i+1;
     
     x_stage = x_vec(i-1,:);
+    lambda_stage = x_stage(1:end-1);
+    z_stage = x_stage(end);
     t_stage = t-dt;
     if t_stage>=t_0+delay % delayed input
         t_delayed = t_stage-delay;
         x_delayed = interp1(t_vec,x_vec,t_delayed); % interpolate, since time steps dont neccessarily match up.
-        f_stage = x_stage*(A_mat-eye(size(A_mat))*D_ctrl(t_delayed,x_delayed'))';
-    else
-        f_stage = x_stage*A_mat'; % D_ctrl = 0 for t_stage <= t0 + delay
+        lambda_delayed = x_stage(1:end-1);
+        z_delayed = x_stage(end);
+        f_stage = [lambda_stage*(A_mat-eye(size(A_mat))*D_ctrl(t_delayed,lambda_delayed',z_delayed))',...
+                   D_ctrl(t_stage,lambda_stage',z_stage) - D_ctrl(t_delayed,lambda_delayed',z_delayed)];
+    else % t_stage < t_0+delay
+        f_stage = [lambda_stage*(A_mat-eye(size(A_mat))*0)',... % D_ctrl(t-delay) = 0 for t_stage <= t0 + delay
+                   D_ctrl(t_stage,lambda_stage',z_stage)];
     end
     
 %     k_1 = dt * f((t-dt),x_vec(i-1,:));
@@ -581,7 +595,6 @@ phi = par_disc.phi;
 y_des = sim_par.y_des;
 y_des_d = sim_par.y_des_d;
 D_ctrl = sim_par.D_ctrl;
-dynamics = sim_par.dynamics;
 lambda_0 = sim_par.lambda_0;
 tspan = sim_par.tspan;
 dt = sim_par.dt;
@@ -589,20 +602,29 @@ dt = sim_par.dt;
 % % simulate
 switch sim_method
     case 'ODE45'
+        dynamics = sim_par.dynamics;
         [t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);
     case 'RK4'
+        dynamics = sim_par.dynamics;
         [t_sample,lambda_sample] = runge_kutta_4(dynamics,tspan,dt,lambda_0);
     case 'euler'
         [t_sample,lambda_sample] = euler(sim_par,tspan,dt,lambda_0);
     case 'euler_delay'
         [t_sample,lambda_sample] = euler_delay(sim_par,tspan,dt,lambda_0);
+        lambda_sample = lambda_sample(:,1:length(lambda_0)); % dirty workaround for simulating z
+        z_sample = lambda_sample(:,end);
 end
 
 y_sample = C_mat*lambda_sample';
 
 D_sample = zeros(size(t_sample));
 for kk = 1:size(lambda_sample,1)
-    D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)');
+    switch sim_method
+        case 'euler_delay'
+            D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)', z_sample(kk));
+        otherwise
+            D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)');
+    end
 end
 
 results.t_sample = t_sample;
