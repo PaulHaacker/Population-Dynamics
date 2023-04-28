@@ -244,7 +244,7 @@ y_des_d = @(t) 0*ones(size(t));
 % y_des_d = @(t) cos(t);
     
 % input delay
-delay = 5;
+delay = 2;
 
 % D_ctrl = @(t,lambda,z) D_star + log(C_mat*lambda/y_des); % logarithmic P-gain
 % D_ctrl = @(t,lambda,z) D_star + (C_mat*lambda-y_des)/y_des; % linear P-gain
@@ -409,7 +409,7 @@ for t = t_vec(2:end)
 end
 end
 
-function [t_vec,x_vec]=euler_delay(sim_par,t_range,dt,x_0)
+function [t_vec,x_vec,D_vec]=euler_delay(sim_par,t_range,dt,x_0)
 % % inputs:
 % dynamics as fcn f(t,x)
 % initial time t_0
@@ -450,13 +450,15 @@ x_vec(1,:)=x_0;
 if length(t_vec) ~= n_steps
     error('length error')
 end
-i = 1;
+D_vec = zeros(n_steps,1);
 
 % Euler-Scheme 1st order
+ii = 1;
+
 for t = t_vec(2:end)
-    i = i+1;
+    ii = ii+1;
     
-    x_stage = x_vec(i-1,:);
+    x_stage = x_vec(ii-1,:);
     lambda_stage = x_stage(1:end-1);
     z_stage = x_stage(end);
     t_stage = t-dt;
@@ -465,10 +467,12 @@ for t = t_vec(2:end)
         x_delayed = interp1(t_vec,x_vec,t_delayed); % interpolate, since time steps dont neccessarily match up.
         lambda_delayed = x_delayed(1:end-1);
         z_delayed = x_delayed(end);
-        f_stage = [lambda_stage*(A_mat-eye(size(A_mat))*D_ctrl(t_delayed,lambda_delayed',z_delayed))',...
+        D_vec(ii-1) = D_ctrl(t_delayed,lambda_delayed',z_delayed);
+        f_stage = [lambda_stage*(A_mat-eye(size(A_mat))*D_vec(ii-1))',...
                    D_ctrl(t_stage,lambda_stage',z_stage) - D_ctrl(t_delayed,lambda_delayed',z_delayed)];
     else % t_stage < t_0+delay
-        f_stage = [lambda_stage*(A_mat-eye(size(A_mat))*0)',... % D_ctrl(t-delay) = 0 for t_stage <= t0 + delay
+        D_vec(ii-1) = D_star; % D_ctrl(t-delay) = 0 for t_stage <= t0 + delay
+        f_stage = [lambda_stage*(A_mat-eye(size(A_mat))*D_vec(ii-1))',... 
                    D_ctrl(t_stage,lambda_stage',z_stage)];
     end
     
@@ -477,9 +481,10 @@ for t = t_vec(2:end)
 %     k_3 = dt * f((t-dt) + .5*dt,x_vec(i-1,:) + .5*k_2);
 %     k_4 = dt * f((t-dt) + dt,x_vec(i-1,:) + k_3);
     
-    x_vec(i,:) = x_stage + dt * f_stage;
+    x_vec(ii,:) = x_stage + dt * f_stage;
 %     x_vec(i,:) = x_vec(i-1,:) + dt * f(t-dt,x_vec(i-1,:));
 end
+D_vec(end) = D_vec(end-1);
 end
 
 function [] = plot_results(par_system, par_disc, results, sim_method)
@@ -522,7 +527,7 @@ switch sim_method
         sgtitle('Population Dynamics with P-controller -- RK4','Interpreter','Latex')
     case 'euler'
         sgtitle('Population Dynamics with P-controller -- euler','Interpreter','Latex')
-    case 'euler w/ delay'
+    case 'euler_delay'
         sgtitle('Population Dynamics with P-controller and input delay -- euler','Interpreter','Latex')
 end
 
@@ -545,9 +550,15 @@ ax2 = subplot(2,6,4:6);
 hold on
 plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
 plot(t_sample,D_sample)
-title('control input $D(t)$')
-legend('steady state input $D^\ast$','input $D(t)$')
-xlabel('time $t$')
+if sim_method == 'euler_delay'
+    title('control input $D(t-\tau)$')
+    legend('steady state input $D^\ast$','input $D(t-\tau)$')
+    xlabel('time $t-\tau$')
+else
+    title('control input $D(t)$')
+    legend('steady state input $D^\ast$','input $D(t)$')
+    xlabel('time $t$')
+end
 grid on
 
 % plot the PDE state where x(t,a) = lambda(t)'*phi(a);
@@ -610,19 +621,19 @@ switch sim_method
     case 'euler'
         [t_sample,lambda_sample] = euler(sim_par,tspan,dt,lambda_0);
     case 'euler_delay'
-        [t_sample,lambda_sample] = euler_delay(sim_par,tspan,dt,lambda_0);
+        [t_sample,lambda_sample,D_sample] = euler_delay(sim_par,tspan,dt,lambda_0);
         lambda_sample = lambda_sample(:,1:length(lambda_0)); % dirty workaround for simulating z
         z_sample = lambda_sample(:,end);
 end
 
 y_sample = C_mat*lambda_sample';
 
-D_sample = zeros(size(t_sample));
 for kk = 1:size(lambda_sample,1)
     switch sim_method
         case 'euler_delay'
-            D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)', z_sample(kk));
+%             D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)', z_sample(kk));
         otherwise
+            D_sample = zeros(size(t_sample));
             D_sample(kk) = D_ctrl(t_sample(kk),lambda_sample(kk,:)');
     end
 end
