@@ -73,14 +73,18 @@ grid on
 
 % time sample from above
 % define domain sample
-a_sample = 0:0.1:A;
+a_sample = 0:0.2:A;
+t_plot = linspace(t_sample(1),t_sample(end),10);
+sep_help = 3;
+t_plot = [linspace(t_plot(1),t_plot(sep_help),20),t_plot(sep_help+1:end)];
 
-[a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
+[a_mesh,t_mesh] = meshgrid(a_sample,t_plot);
 x_mesh = zeros(size(a_mesh));
 
-for ii = 1:length(t_sample)
+for ii = 1:length(t_plot)
     for jj = 1:length(a_sample)
-        x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+%         x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+        x_mesh(ii,jj) = interp1(t_sample,lambda_sample,t_plot(ii))*eval_phi(phi,a_sample(jj));
     end
 end
 
