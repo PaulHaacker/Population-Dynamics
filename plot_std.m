@@ -88,7 +88,7 @@ axes_handle = nexttile;
 % surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]); %
 % matlab blue
 surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
-LessEdgeSurf(surf_plot,20,20);
+LessEdgeSurf(surf_plot,20,10);
 axes_handle.CameraPosition = [16.7896   57.3334    3.7910];
 xlabel('age $a$')
 ylabel('time $t$')

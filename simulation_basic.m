@@ -251,16 +251,16 @@ delay = 2;
 % D_ctrl = @(t,lambda,z) max([D_star - y_des_d(t)./y_des(t)...
 %         + log(C_mat*lambda./y_des(t)),0]); % linear P-gain - dynamic FF +
 % %       saturation.
-% D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
-%         + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
 D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
-        +( log(C_mat*lambda./y_des(t)) + D_star*delay - z) ; % linear P-gain - dynamic FF + delay compensation
+        + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
+% D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
+%         +( log(C_mat*lambda./y_des(t)) + D_star*delay - z) ; % linear P-gain - dynamic FF + delay compensation
 
 % dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
-tspan = [0 16.5];
+tspan = [0 50];
 dt = .01; % needs to be small for numeric stability
 
 sim_par.y_des = y_des;
