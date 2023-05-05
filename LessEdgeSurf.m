@@ -21,9 +21,11 @@ hold on
 for i = 1:yspacing:ylength
     if i == 1
 %         mesh([X(i,:);X(i,:)], [Y(i,:);Y(i,:)], [Z(i,:);Z(i,:)],'EdgeColor',[0.4940 0.1840 0.5560],'Linewidth',1.5);
-        mesh([X(i,:);X(i,:)], [Y(i,:);Y(i,:)], [Z(i,:);Z(i,:)],'EdgeColor','green','Linewidth',2.5);
+        mesh([X(i,:);X(i,:)], [Y(i,:);Y(i,:)], [Z(i,:);Z(i,:)],'EdgeColor','green','Linewidth',2.5,...
+            'FaceColor','none');
     else
-        mesh([X(i,:);X(i,:)], [Y(i,:);Y(i,:)], [Z(i,:);Z(i,:)],'EdgeColor',[0 0 0]);
+        mesh([X(i,:);X(i,:)], [Y(i,:);Y(i,:)], [Z(i,:);Z(i,:)],'EdgeColor',[0 0 0],...
+            'FaceColor','none');
     end
 end
 % Plotting lines in the Y-Z plane

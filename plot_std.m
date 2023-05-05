@@ -73,7 +73,7 @@ grid on
 
 % time sample from above
 % define domain sample
-a_sample = 0:0.2:A;
+a_sample = linspace(0,A,11);
 t_plot = linspace(t_sample(1),t_sample(end),10);
 sep_help = 3;
 t_plot = [linspace(t_plot(1),t_plot(sep_help),20),t_plot(sep_help+1:end)];
@@ -92,7 +92,10 @@ axes_handle = nexttile;
 % surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]); %
 % matlab blue
 surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
-LessEdgeSurf(surf_plot,20,10);
+hold on
+plot3(a_mesh(:,1), t_mesh(:,1), x_mesh(:,1),'g','Linewidth',1.5);
+plot3(a_mesh(1,:), t_mesh(1,:), x_mesh(1,:),'r','Linewidth',1.5);
+% LessEdgeSurf(surf_plot,20,10);
 axes_handle.CameraPosition = [16.7896   57.3334    3.7910];
 xlabel('age $a$')
 ylabel('time $t$')
