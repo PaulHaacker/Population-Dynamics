@@ -38,6 +38,10 @@ y_sample = results.y_sample;
 D_sample = results.D_sample;
 
 %% std plot
+t_plot = linspace(t_sample(1),t_sample(end),10);
+sep_help = 3;
+t_plot = [linspace(t_plot(1),t_plot(sep_help),10),t_plot(sep_help+1:end)];
+
 figure('units','normalized','outerposition',[0 0 1 1])
 tiles_handle = tiledlayout(2,2);
 title(tiles_handle,'Print Plot','Interpreter','Latex')
@@ -74,9 +78,6 @@ grid on
 % time sample from above
 % define domain sample
 a_sample = linspace(0,A,11);
-t_plot = linspace(t_sample(1),t_sample(end),10);
-sep_help = 3;
-t_plot = [linspace(t_plot(1),t_plot(sep_help),20),t_plot(sep_help+1:end)];
 
 [a_mesh,t_mesh] = meshgrid(a_sample,t_plot);
 x_mesh = zeros(size(a_mesh));
