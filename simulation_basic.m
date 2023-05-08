@@ -251,16 +251,17 @@ delay = 2;
 % D_ctrl = @(t,lambda,z) max([D_star - y_des_d(t)./y_des(t)...
 %         + log(C_mat*lambda./y_des(t)),0]); % linear P-gain - dynamic FF +
 % %       saturation.
-D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
-        + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
 % D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
-%         +( log(C_mat*lambda./y_des(t)) + D_star*delay - z) ; % linear P-gain - dynamic FF + delay compensation
+%         + log(C_mat*lambda./y_des(t)); % linear P-gain - dynamic FF
+D_ctrl = @(t,lambda,z) D_star - y_des_d(t)./y_des(t)...
+        +( log(C_mat*lambda./y_des(t)) + D_star*delay - z) ; % linear P-gain - dynamic FF + delay compensation
 
 % dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda))*lambda;
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
-tspan = [0 50];
+lambda_0(2) = 1;
+tspan = [0 10];
 dt = .01; % needs to be small for numeric stability
 
 sim_par.y_des = y_des;
@@ -519,7 +520,12 @@ y_des = results.y_des;
 D_sample = results.D_sample;
 
 % % plot results ODE54 - P-controller stabilizing setpoint - DIAGNE plot
-fig_handle = figure;
+t_plot = linspace(t_sample(1),t_sample(end),100);
+sep_help = 10;
+t_plot = [linspace(t_plot(1),t_plot(sep_help),20),t_plot(sep_help+1:end)];
+
+fig_handle = figure('units','normalized','outerposition',[0 0 1 1]);
+
 switch sim_method
     case 'ODE45'
         sgtitle('Population Dynamics with P-controller -- ODE45','Interpreter','Latex')
@@ -528,36 +534,45 @@ switch sim_method
     case 'euler'
         sgtitle('Population Dynamics with P-controller -- euler','Interpreter','Latex')
     case 'euler_delay'
-        sgtitle('Population Dynamics with P-controller and input delay -- euler','Interpreter','Latex')
+        % sgtitle('Population Dynamics with P-controller and input delay -- euler','Interpreter','Latex')
 end
-
-% nexttile
-% plot(t_sample,lambda_sample)
-% title('discretized states $\lambda(t)$')
-% xlabel('time t')
-% grid on
 
 ax1 = subplot(2,6,1:3);
 hold on
-plot(t_sample,y_des(t_sample),'--k','Linewidth',1.5)
-plot(t_sample,y_sample)
-title('output $y(t)$')
-legend('desired output $y_\mathrm{des}(t)$','output $y(t)$')
+plot(t_plot,y_des(t_plot),'--k','Linewidth',1.5)
+plot(t_plot,interp1(t_sample,y_sample,t_plot))
+title('(b) output')
+legend('desired output $y_\mathrm{des}$','output $y(t)$','Location', 'best')
 xlabel('time $t$')
+ylabel('$y(t)$')
 grid on
+
+% hold on
+% plot(t_sample,y_des(t_sample),'--k','Linewidth',1.5)
+% plot(t_sample,y_sample)
+% title('output $y(t)$')
+% legend('desired output $y_\mathrm{des}(t)$','output $y(t)$')
+% xlabel('time $t$')
+% grid on
 
 ax2 = subplot(2,6,4:6);
 hold on
-plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
-plot(t_sample,D_sample)
+plot(t_plot,ones(size(t_plot))*D_star,'--k','Linewidth',1.5)
+plot(t_plot,interp1(t_sample,D_sample,t_plot),'b')
+
+% hold on
+% plot(t_sample,ones(size(D_sample))*D_star,'--k','Linewidth',1.5)
+% plot(t_sample,D_sample)
 if sim_method == 'euler_delay'
-    title('control input $D(t-\tau)$')
+    title('(c) dilution rate $D(t-\tau)$')
     legend('steady state input $D^\ast$','input $D(t-\tau)$')
     xlabel('time $t-\tau$')
+    % ylabel('$D(t-\tau)$')
 else
-    title('control input $D(t)$')
+    title('(c) dilution rate $D(t)$')
     legend('steady state input $D^\ast$','input $D(t)$')
     xlabel('time $t$')
+    % ylabel('$D(t)$')
 end
 grid on
 
@@ -565,26 +580,43 @@ grid on
 
 % time sample from above
 % define domain sample
-a_sample = 0:0.1:A;
+a_sample = linspace(0,A,11);
 
-[a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
+% [a_mesh,t_mesh] = meshgrid(a_sample,t_sample);
+% x_mesh = zeros(size(a_mesh));
+% 
+% for ii = 1:length(t_sample)
+%     for jj = 1:length(a_sample)
+%         x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+%     end
+% end
+
+[a_mesh,t_mesh] = meshgrid(a_sample,t_plot);
 x_mesh = zeros(size(a_mesh));
 
-for ii = 1:length(t_sample)
+for ii = 1:length(t_plot)
     for jj = 1:length(a_sample)
-        x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+%         x_mesh(ii,jj) = lambda_sample(ii,:)*eval_phi(phi,a_sample(jj));
+        x_mesh(ii,jj) = interp1(t_sample,lambda_sample,t_plot(ii))*eval_phi(phi,a_sample(jj));
     end
 end
 
 axes_handle = subplot(2,6,8:11);
 % surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor',[0 0.4470 0.7410]);
 surf_plot = surf(a_mesh,t_mesh,x_mesh,'FaceColor','none');
-LessEdgeSurf(surf_plot,20,20);
-axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
+hold on
+plot3(a_mesh(:,1), t_mesh(:,1), x_mesh(:,1),'g','Linewidth',1.5);
+plot3(a_mesh(1,:), t_mesh(1,:), x_mesh(1,:),'r','Linewidth',1.5);
+zlim_help = zlim;
+zlim([0,zlim_help(2)]);
+view([80, 25])
+% LessEdgeSurf(surf_plot,20,20);
+% axes_handle.CameraPosition = [15.8393  -65.0215   37.0943];
 
 xlabel('age $a$')
 ylabel('time $t$')
-title('population density $f(t,a)$')
+zlabel('$f(a,t)$')
+title('(c) population density ')
 end
 
 function results = sim_system(par_system, par_disc, sim_par, sim_method)
