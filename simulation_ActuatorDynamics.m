@@ -13,7 +13,7 @@ standard_plot = true; % standard plot
 transformed_plot = false; % plot of transformed coordinates
 
 %% switch for control
-ctrl_mode = 'Backstepping';'Karafyllis';  % options: 'Backstepping', 'Karafyllis'
+ctrl_mode = 'Karafyllis';'Backstepping';  % options: 'Backstepping', 'Karafyllis'
 
 %% ------ parameters
 
@@ -42,7 +42,7 @@ manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
 mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
 D_star = 0.4837;
 y0 = 1; % initial output
-x0 = @(a) 8-3*a; % IC
+x0 = @(a) 8-3*a; % IC -- can be altered down below
 sigma(1) = -1.8224; % eigenvalues of the form lambda = -sigma/A+-j*omega/(2*pi*A)
 omega(1) = 48.0574;
 sigma(2) = -2.3838;
@@ -121,7 +121,7 @@ discretization.phi = phi;
 % edit: now also works with trajectories
 
 % setpoint
-y_des = @(t) 10*ones(size(t));
+y_des = @(t) 40*ones(size(t));
 y_des_d = @(t) 0*ones(size(t));
 y_des_d2 = @(t) 0*ones(size(t));
 
@@ -133,7 +133,7 @@ y_des_d2 = @(t) 0*ones(size(t));
 % y_des_d2 = @(t) - y_hat_sig*omega_sig^2*sin(omega_sig*t);
 
 % allowed interval of dilution rate
-D_min = 0; % minimum Dilution rate constraint for Safety-Filter
+D_min = 0.1; % minimum Dilution rate constraint for Safety-Filter
 D_max = 1.5; % maximum Dilution rate constraint for Safety-Filter
 
 switch ctrl_mode
@@ -141,7 +141,7 @@ switch ctrl_mode
         % --- Karafyllis' Transformation Controller (TC)
         % parameter
         Q_TC = 1; % TC gain parameter
-        sigma_TC = 3; % TC gain parameter
+        sigma_TC = 10; % TC gain parameter
         k_TC = 1; % TC gain parameter
         D_min_TC = D_min; % minimum Dilution rate constraint for TC
         D_max_TC = D_max; % maximum Dilution rate constraint for TC
@@ -156,7 +156,7 @@ switch ctrl_mode
         end
 
         u_ctrl = @(t,rho) u_ctrl_TC_fcn(rho, zeta_fcn, exp_zeta, A_TC, ...
-                                B_TC, k_TC, sigma_TC, Q_TC, y_des, C_mat);
+                                B_TC, k_TC, sigma_TC, Q_TC, y_des(t), C_mat);
                             
         % dirty: empty paramteters
         k_nom = 0;
@@ -183,12 +183,12 @@ switch ctrl_mode
 
         % --- define controller - backstepping type
 
-%         u_cancel = @(t,rho) -k_nom*rho(end)-k_nom/(C_mat*rho(1:end-1))...
-%                     *(p(A)*eval_phi(phi,A)-p(0)*eval_phi(phi,0)-int_par)'*rho(1:end-1); % cancelling terms - exact cancellation
-%         u_cancel = @(t,rho) k_nom*(-rho(end)+D_star); % cancelling terms - super late botching (proven to work)
-        u_cancel = @(t,rho) k_nom*(-rho(end)+D_star-y_des_d(t)./...
-                   y_des(t)) -y_des_d2(t)./y_des(t) ...
-                   + y_des_d(t).^2./y_des(t).^2; % cancelling terms - tracking        
+        u_cancel = @(t,rho) -k_nom*rho(end)-k_nom/(C_mat*rho(1:end-1))...
+                    *(p(A)*eval_phi(phi,A)-p(0)*eval_phi(phi,0)-int_par)'*rho(1:end-1); % cancelling terms - exact cancellation
+        % u_cancel = @(t,rho) k_nom*(-rho(end)+D_star); % cancelling terms - relaxed (proven to work)
+%         u_cancel = @(t,rho) k_nom*(-rho(end)+D_star-y_des_d(t)./...
+%                    y_des(t)) -y_des_d2(t)./y_des(t) ...
+%                    + y_des_d(t).^2./y_des(t).^2; % cancelling terms - tracking        
         % u_cancel = @(t,rho) 0; % cancelling terms - early botching (seems to work)
         % u_cancel = @(t,rho) -rho(end)+D_star*y_des/(C_mat*rho(1:end-1)); % cancelling terms - late botching (unstable)
         
@@ -199,13 +199,13 @@ switch ctrl_mode
                 +y_des_d(t)./y_des(t)); % stabilizing terms - tracking
         
         % --- safety override
-%         u_constraint = @(t,rho) 0; % ignore constraints on D(t)
+        u_constraint = @(t,rho) 0; % ignore constraints on D(t)
         % u_constraint =  @(t,rho) -log(rho(end)/D_star); % logarithmic penalty of D(t)->0
         % u_constraint =  @(t,rho) (y_des)/4*(- rho(end) + D_star); % linear penalty of D(t)->0
-%         u_constraint =  @(t,rho) max(0,- u_cancel(t,rho) - u_stabilize(t,rho) ...
-%                         +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
-        u_constraint =  @(t,rho) max(0,-(u_cancel(t,rho) + u_stabilize(t,rho))*L_g_h(rho(end))...
-                                - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min_safe,D_max_safe]
+        % u_constraint =  @(t,rho) max(0,- u_cancel(t,rho) - u_stabilize(t,rho) ...
+        %                 +k_safety*(-rho(end)+D_min_safe)); % Safety-Filter for D(t) > D_min_safe
+%         u_constraint =  @(t,rho) max(0,-(u_cancel(t,rho) + u_stabilize(t,rho))*L_g_h(rho(end))...
+%                                 - h_fcn(rho(end)))/L_g_h(rho(end)); % Safety-Filter for D(t) \in [D_min_safe,D_max_safe]
 
         u_ctrl = @(t,rho) u_cancel(t,rho) + u_stabilize(t,rho) + u_constraint(t,rho);
         
@@ -226,10 +226,12 @@ par_ctrl.ctrl_mode = ctrl_mode;
 dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end))*rho(1:end-1);
                       u_ctrl(t,rho)];
 
+% lambda_0 = ones(size(A_mat,1),1); % initial conditions - very rich
 lambda_0 = zeros(size(A_mat,1),1); % initial conditions
-lambda_0(end) = 1; % DO NOT change IC here, but in x0
+lambda_0(end) = 1;
+lambda_0(2) = 1;
 rho_0 = [lambda_0;D_star];
-tspan = [0 10]; % simulation horizon
+tspan = [0 8]; % simulation horizon
 
 [t_sample,rho_sample] = ode45(dynamics,tspan,rho_0); % run simulation
 
@@ -281,7 +283,8 @@ function val = u_ctrl_TC_fcn(rho, zeta_fcn, exp_zeta, A_TC, B_TC, k_TC, sigma_TC
 % controller proposed by Karafyllis
 D = rho(end);
 val = A_TC^2*B_TC^2 *(sigma_TC^2*Q_TC + 1)*exp_zeta(D).*(1-exp_zeta(D))./...
-    sigma_TC / Q_TC / (B_TC +1) ./ (B_TC+ exp_zeta(D))^3 - k_TC*A_TC*B_TC*exp_zeta(D)...
+    sigma_TC / Q_TC / (B_TC +1) ./ (B_TC+ exp_zeta(D))^3 ...
+    - k_TC*A_TC*B_TC*exp_zeta(D)...
     ./(B_TC+ exp_zeta(D))^2 .*(zeta_fcn(D)-sigma_TC *log(C_mat*rho(1:end-1)/y_des));
 % val = - k_TC*A_TC*B_TC*exp_zeta(D)...
 %     ./(B_TC+ exp_zeta(D))^2 .*(zeta_fcn(D)-sigma_TC *log(C_mat*rho(1:end-1)/y_des));
