@@ -33,7 +33,7 @@ A = 2; % max age
 mu = @(a) 1./(20-5*a); % mortality rate function - problem: matlab cannot find the correct integral...
 k = @(a) a; % birth kernel
 p = @(a) 1+.1*a.^2; % output kernel
-b = @(a) .01; % self-competition kernel
+b = @(a) .05*a; % self-competition kernel
 manuallyProvideMuINT = true; % boolean, that switches integral of mu on or off.
 mu_int = @(a) -log((4-a)/4)/5; % = int_0^a mu(s) ds for a \in [0,2]
 gamma = 0.4837; % generalized s.-s. Dilution Rate
@@ -186,10 +186,10 @@ switch ControlMode
         % control input
 %         D_ctrl = @(t,lambda) gamma ...
 %                 - y_des_d(t)./y_des(t); % mess around here
-%         D_ctrl = @(t,lambda) gamma ...
-%                 - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % pure FF w/o FB
-        D_ctrl = @(t,lambda) gamma + log(C_mat*lambda./y_des(t)) ...
-                - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % [KSS21]
+        D_ctrl = @(t,lambda) gamma ...
+                - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % pure FF w/o FB
+%         D_ctrl = @(t,lambda) gamma + log(C_mat*lambda./y_des(t)) ...
+%                 - y_des_d(t)./y_des(t) - y_des(t)*b_star/p_star; % [KSS21]
 end
 
 par_ctrl.D_ctrl = D_ctrl;
@@ -211,6 +211,7 @@ dynamics = @(t,lambda) (A_mat-eye(size(A_mat))*D_ctrl(t,lambda) ...
 
 lambda_0 = zeros(size(A_mat,1),1);
 lambda_0(end) = 1;
+lambda_0(2) = 1;
 tspan = [0 30];
 
 [t_sample,lambda_sample] = ode45(dynamics,tspan,lambda_0);

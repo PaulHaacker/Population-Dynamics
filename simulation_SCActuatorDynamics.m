@@ -210,7 +210,7 @@ par_ctrl.ctrl_mode = ctrl_mode;
 %                       u_ctrl(rho)];
 
 dynamics = @(t,rho) [(A_mat-eye(size(A_mat))*rho(end) ...
-            -eye(size(A_mat))*(rho(1:end-1)'*rho(1:end-1)))*rho(1:end-1);
+            -eye(size(A_mat))*(phi_3'*rho(1:end-1)))*rho(1:end-1);
             u_ctrl(rho)];
 lambda_0 = zeros(size(A_mat,1),1); % initial conditions
 lambda_0(end) = 1; % DO NOT change IC here, but in x0
